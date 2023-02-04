@@ -1,0 +1,4 @@
+To avoid the rabbitmq server timeing out the consumer for long running tasks, increase ack-timeout
+https://www.rabbitmq.com/consumers.html#acknowledgement-timeout
+the ack timeout can be set in the configuration file
+https://github.com/rabbitmq/rabbitmq-server/blob/main/deps/rabbit/docs/rabbitmq.conf.example

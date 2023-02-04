@@ -3,8 +3,8 @@ use std::env;
 use amqprs::{
     callbacks::{DefaultChannelCallback, DefaultConnectionCallback},
     channel::{
-        BasicAckArguments, BasicConsumeArguments, BasicPublishArguments, Channel,
-        ExchangeDeclareArguments, QueueBindArguments, QueueDeclareArguments,
+        BasicAckArguments, BasicConsumeArguments, BasicPublishArguments, BasicQosArguments,
+        Channel, ExchangeDeclareArguments, QueueBindArguments, QueueDeclareArguments,
     },
     connection::{Connection, OpenConnectionArguments},
     BasicProperties,
@@ -93,6 +93,12 @@ async fn process(channel: &Channel, queue_name: &str) {
         let message: TestMessage = serde_json::from_slice(&message.content.unwrap()).unwrap();
 
         info!("{ctag} has received a message {:?}", message);
+        let process_result = test_processor(message).await;
+        info!("processor result {:?}", process_result);
+        // need ability to batch process messages
+        // the processor potentially need sql connection, blob storage connection string, redis connection, configurations, etc
+        // there should be separation of the queuing logic and processing logic
+        // once_cell global configuration
 
         channel
             .basic_ack(BasicAckArguments::new(deliver.delivery_tag(), false))
@@ -101,6 +107,18 @@ async fn process(channel: &Channel, queue_name: &str) {
 
         time::sleep(time::Duration::from_millis(50)).await;
     }
+}
+
+#[derive(Debug)]
+enum ProcessResult {
+    Success,
+    Redeliver,
+    Failure,
+}
+
+async fn test_processor(message: TestMessage) -> ProcessResult {
+    info!("processing message {:?}", message);
+    ProcessResult::Success
 }
 
 async fn generate(channel: &Channel, routing_key: &str, exchange_name: &str) {
@@ -156,6 +174,15 @@ async fn declare_topology(
             exchange_name,
             routing_key,
         ))
+        .await
+        .unwrap();
+
+    // set limit to prefetch count
+    // to make sure messages are evenly distributed among consumers
+    // and prevent the consumer from being overwhelmed with messages
+    // https://www.rabbitmq.com/confirms.html#channel-qos-prefetch-throughput
+    channel
+        .basic_qos(BasicQosArguments::new(0, 300, false))
         .await
         .unwrap();
 
