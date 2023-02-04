@@ -26,17 +26,7 @@ async fn main() {
     let args: Vec<String> = env::args().collect();
     let run_type = &args[1];
 
-    // construct a subscriber that prints formatted traces to stdout
-    tracing_subscriber::registry()
-        .with(fmt::layer())
-        // .with(EnvFilter::from_default_env())
-        .with(
-            EnvFilter::builder()
-                .with_default_directive(LevelFilter::INFO.into())
-                .from_env_lossy(),
-        )
-        .try_init()
-        .ok();
+    set_up_logging();
 
     // open a connection to RabbitMQ server
     let connection = Connection::open(&OpenConnectionArguments::new(
@@ -82,6 +72,20 @@ async fn main() {
     // explicitly close to gracefully shutdown
     channel.close().await.unwrap();
     connection.close().await.unwrap();
+}
+
+fn set_up_logging() {
+    // construct a subscriber that prints formatted traces to stdout
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        // .with(EnvFilter::from_default_env())
+        .with(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .from_env_lossy(),
+        )
+        .try_init()
+        .ok();
 }
 
 async fn process(channel: &Channel, queue_name: &str) {
