@@ -7,7 +7,7 @@ use amqprs::{
         Channel, ExchangeDeclareArguments, QueueBindArguments, QueueDeclareArguments,
     },
     connection::{Connection, OpenConnectionArguments},
-    BasicProperties,
+    BasicProperties, DELIVERY_MODE_PERSISTENT,
 };
 use serde::{Deserialize, Serialize};
 use tokio::time;
@@ -63,7 +63,7 @@ async fn main() {
     let routing_key = "edge.do_something_processor";
     let exchange_name = "edge.direct";
     let exchange_type = "direct";
-    let queue_name = declare_topology(
+    declare_topology(
         &channel,
         queue_name,
         routing_key,
@@ -73,7 +73,7 @@ async fn main() {
     .await;
 
     match run_type.as_str() {
-        "process" => process(&channel, &queue_name).await,
+        "process" => process(&channel, queue_name).await,
         "generate" => generate(&channel, routing_key, exchange_name).await,
         _ => panic!("unrecognised run type"),
     }
@@ -100,6 +100,7 @@ async fn process(channel: &Channel, queue_name: &str) {
         // there should be separation of the queuing logic and processing logic
         // once_cell global configuration
 
+        // if doing batch processing, can set multple = true to ack multiple items up to the delivery tag
         channel
             .basic_ack(BasicAckArguments::new(deliver.delivery_tag(), false))
             .await
@@ -132,7 +133,13 @@ async fn generate(channel: &Channel, routing_key: &str, exchange_name: &str) {
         info!("sending message {message:?}");
         let content = serde_json::to_vec(&message).unwrap();
         channel
-            .basic_publish(BasicProperties::default(), content, args.clone())
+            .basic_publish(
+                BasicProperties::default()
+                    .with_delivery_mode(DELIVERY_MODE_PERSISTENT)
+                    .finish(),
+                content,
+                args.clone(),
+            )
             .await
             .unwrap();
         time::sleep(time::Duration::from_millis(30)).await;
@@ -145,7 +152,7 @@ async fn declare_topology(
     routing_key: &str,
     exchange_name: &str,
     exchange_type: &str,
-) -> String {
+) {
     // declare exchange
     channel
         .exchange_declare(
@@ -185,6 +192,4 @@ async fn declare_topology(
         .basic_qos(BasicQosArguments::new(0, 300, false))
         .await
         .unwrap();
-
-    queue_name
 }
