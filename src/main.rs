@@ -4,7 +4,7 @@ use amqprs::{
     callbacks::{DefaultChannelCallback, DefaultConnectionCallback},
     channel::{
         BasicAckArguments, BasicConsumeArguments, BasicPublishArguments, Channel,
-        QueueBindArguments, QueueDeclareArguments,
+        ExchangeDeclareArguments, QueueBindArguments, QueueDeclareArguments,
     },
     connection::{Connection, OpenConnectionArguments},
     BasicProperties,
@@ -26,7 +26,6 @@ async fn main() {
     let run_type = &args[1];
 
     // construct a subscriber that prints formatted traces to stdout
-    // global subscriber with log level according to RUST_LOG
     tracing_subscriber::registry()
         .with(fmt::layer())
         // .with(EnvFilter::from_default_env())
@@ -61,9 +60,17 @@ async fn main() {
         .unwrap();
 
     let queue_name = "edge.do_something_processor";
-    let routing_key = "amqprs.example";
-    let exchange_name = "amq.topic";
-    let queue_name = declare_queue(&channel, queue_name, routing_key, exchange_name).await;
+    let routing_key = "edge.do_something_processor";
+    let exchange_name = "edge.direct";
+    let exchange_type = "direct";
+    let queue_name = declare_topology(
+        &channel,
+        queue_name,
+        routing_key,
+        exchange_name,
+        exchange_type,
+    )
+    .await;
 
     match run_type.as_str() {
         "process" => process(&channel, &queue_name).await,
@@ -79,7 +86,7 @@ async fn main() {
 async fn process(channel: &Channel, queue_name: &str) {
     info!("Starting process {queue_name}");
 
-    let args = BasicConsumeArguments::new(queue_name, "example_consumer_tag").finish();
+    let args = BasicConsumeArguments::new(queue_name, "edge_processor_tag").finish();
     let (ctag, mut messages_rx) = channel.basic_consume_rx(args).await.unwrap();
     while let Some(message) = messages_rx.recv().await {
         let deliver = message.deliver.unwrap();
@@ -114,12 +121,23 @@ async fn generate(channel: &Channel, routing_key: &str, exchange_name: &str) {
     }
 }
 
-async fn declare_queue(
+async fn declare_topology(
     channel: &Channel,
     queue_name: &str,
     routing_key: &str,
     exchange_name: &str,
+    exchange_type: &str,
 ) -> String {
+    // declare exchange
+    channel
+        .exchange_declare(
+            ExchangeDeclareArguments::new(exchange_name, exchange_type)
+                .durable(true)
+                .finish(),
+        )
+        .await
+        .unwrap();
+
     // declare a queue
     let (queue_name, _, _) = channel
         .queue_declare(
