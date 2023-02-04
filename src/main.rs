@@ -9,15 +9,16 @@ use amqprs::{
     connection::{Connection, OpenConnectionArguments},
     BasicProperties, DELIVERY_MODE_PERSISTENT,
 };
-use serde::{Deserialize, Serialize};
+use rust_rabbitmq::message_types::TestMessage;
 use tokio::time;
 use tracing::{info, metadata::LevelFilter};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
-#[derive(Deserialize, Serialize, Debug)]
-struct TestMessage {
-    publisher: String,
-    data: String,
+#[derive(Debug)]
+enum ProcessResult {
+    Success,
+    Redeliver,
+    Failure,
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -108,13 +109,6 @@ async fn process(channel: &Channel, queue_name: &str) {
 
         time::sleep(time::Duration::from_millis(50)).await;
     }
-}
-
-#[derive(Debug)]
-enum ProcessResult {
-    Success,
-    Redeliver,
-    Failure,
 }
 
 async fn test_processor(message: TestMessage) -> ProcessResult {
