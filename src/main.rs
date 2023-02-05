@@ -12,7 +12,7 @@ use amqprs::{
 use rust_rabbitmq::message_types::TestMessage;
 use serde::Serialize;
 use tokio::time;
-use tracing::{info, metadata::LevelFilter};
+use tracing::{info, metadata::LevelFilter, error};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 #[derive(Debug)]
@@ -67,7 +67,7 @@ async fn main() {
     match processor_name.as_str() {
         "process" => process(&channel, queue_name).await,
         "generate" => test_generator(&channel, routing_key, exchange_name).await,
-        _ => panic!("unrecognised processor type"),
+        _ => error!("unrecognised processor type"),
     }
 
     // explicitly close to gracefully shutdown
@@ -133,11 +133,11 @@ async fn test_generator(channel: &Channel, routing_key: &str, exchange_name: &st
 
 async fn publish<T>(channel: &Channel, routing_key: &str, exchange_name: &str, message: T)
 where
-    T: Serialize + std::fmt::Debug,
+    T: Serialize + std::fmt::Display,
 {
     // create arguments for basic_publish
     let args = BasicPublishArguments::new(exchange_name, routing_key);
-    info!("sending message {message:?}");
+    info!("sending message {message}");
     let content = serde_json::to_vec(&message).unwrap();
     channel
         .basic_publish(
