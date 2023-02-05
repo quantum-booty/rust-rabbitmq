@@ -19,6 +19,8 @@ and bind "error" to queue2 consumed by consumer2
 - if a producer wants to publish to a specific queue, it is good practice to have routing key be the same as queue name
 - if a producer wants to publish to multiple queues, we can bind multiple queues to the direct exchange with the same routing key
 
+![Logging Severity](img/2023-02-05-15-57-59.png)
+
 ## Fanout Exchange
 broadcast messages to all the queues that are bound to the exchange
 useful for when you want to notify multiple consumers about a single event
