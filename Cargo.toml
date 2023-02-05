@@ -6,10 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-amqprs = { version = "1.0.5", features = ["traces", "compliance_assert"] }
-anyhow = "1.0.68"
+amqprs = { version = "1.0.6", features = ["traces", "compliance_assert"] }
+anyhow = "1.0.69"
+itertools = "0.10.5"
 serde = { version = "1.0.152", features = ["serde_derive"] }
-serde_json = "1.0.91"
+serde_json = "1.0.92"
 thiserror = "1.0.38"
 tokio = "1.25.0"
 tracing = "0.1.37"
