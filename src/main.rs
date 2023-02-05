@@ -10,6 +10,7 @@ use amqprs::{
     BasicProperties, DELIVERY_MODE_PERSISTENT,
 };
 use rust_rabbitmq::message_types::TestMessage;
+use serde::Serialize;
 use tokio::time;
 use tracing::{info, metadata::LevelFilter};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
@@ -24,7 +25,7 @@ enum ProcessResult {
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
     let args: Vec<String> = env::args().collect();
-    let run_type = &args[1];
+    let processor_name = &args[1];
 
     set_up_logging();
 
@@ -63,10 +64,10 @@ async fn main() {
     )
     .await;
 
-    match run_type.as_str() {
+    match processor_name.as_str() {
         "process" => process(&channel, queue_name).await,
-        "generate" => generate(&channel, routing_key, exchange_name).await,
-        _ => panic!("unrecognised run type"),
+        "generate" => test_generator(&channel, routing_key, exchange_name).await,
+        _ => panic!("unrecognised processor type"),
     }
 
     // explicitly close to gracefully shutdown
@@ -75,15 +76,14 @@ async fn main() {
 }
 
 fn set_up_logging() {
+    // Parse an `EnvFilter` configuration from the `RUST_LOG` environment variable.
+    let filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env_lossy();
     // construct a subscriber that prints formatted traces to stdout
     tracing_subscriber::registry()
         .with(fmt::layer())
-        // .with(EnvFilter::from_default_env())
-        .with(
-            EnvFilter::builder()
-                .with_default_directive(LevelFilter::INFO.into())
-                .from_env_lossy(),
-        )
+        .with(filter)
         .try_init()
         .ok();
 }
@@ -91,7 +91,7 @@ fn set_up_logging() {
 async fn process(channel: &Channel, queue_name: &str) {
     info!("Starting process {queue_name}");
 
-    let args = BasicConsumeArguments::new(queue_name, "edge_processor_tag").finish();
+    let args = BasicConsumeArguments::new(queue_name, "edge_processor_tag");
     let (ctag, mut messages_rx) = channel.basic_consume_rx(args).await.unwrap();
     while let Some(message) = messages_rx.recv().await {
         let deliver = message.deliver.unwrap();
@@ -120,28 +120,35 @@ async fn test_processor(message: TestMessage) -> ProcessResult {
     ProcessResult::Success
 }
 
-async fn generate(channel: &Channel, routing_key: &str, exchange_name: &str) {
-    // create arguments for basic_publish
-    let args = BasicPublishArguments::new(exchange_name, routing_key);
+async fn test_generator(channel: &Channel, routing_key: &str, exchange_name: &str) {
     for i in 0.. {
         let message = TestMessage {
             publisher: "example generator".to_string(),
             data: format!("hello world {i}"),
         };
-        info!("sending message {message:?}");
-        let content = serde_json::to_vec(&message).unwrap();
-        channel
-            .basic_publish(
-                BasicProperties::default()
-                    .with_delivery_mode(DELIVERY_MODE_PERSISTENT)
-                    .finish(),
-                content,
-                args.clone(),
-            )
-            .await
-            .unwrap();
+        publish(channel, routing_key, exchange_name, message).await;
         time::sleep(time::Duration::from_millis(30)).await;
     }
+}
+
+async fn publish<T>(channel: &Channel, routing_key: &str, exchange_name: &str, message: T)
+where
+    T: Serialize + std::fmt::Debug,
+{
+    // create arguments for basic_publish
+    let args = BasicPublishArguments::new(exchange_name, routing_key);
+    info!("sending message {message:?}");
+    let content = serde_json::to_vec(&message).unwrap();
+    channel
+        .basic_publish(
+            BasicProperties::default()
+                .with_delivery_mode(DELIVERY_MODE_PERSISTENT)
+                .finish(),
+            content,
+            args,
+        )
+        .await
+        .unwrap();
 }
 
 async fn declare_topology(
