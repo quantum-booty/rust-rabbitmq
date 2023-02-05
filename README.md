@@ -38,7 +38,17 @@ e.g. for logging, where there are multiple log systems for analysis or storage
   - declares the exchange
   - publishes messages to that exchange
 
+## Topic Exchange
+- topic exchange allows for more complex routing by allowing wildcards in the routing keys
+- the routing keys in topic exchange has to be words delimited by dots .
+- `*` matches for exactly one word
+- `#` matches for zero or more words
+- if wild cards are not used, topic exchange behaves just like direct
+
 # Todo
 - [ ] finish rabbitmq tutorial
 - [ ] generalize processors logic
 - [ ] add global configuration
+
+# Python Equivalent
+https://github.com/pika/pika/blob/main/examples/basic_consumer_threaded.py
