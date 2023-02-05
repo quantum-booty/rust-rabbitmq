@@ -9,10 +9,11 @@ use amqprs::{
     connection::{Connection, OpenConnectionArguments},
     BasicProperties, DELIVERY_MODE_PERSISTENT,
 };
+use anyhow::Result;
 use rust_rabbitmq::message_types::TestMessage;
 use serde::Serialize;
 use tokio::time;
-use tracing::{info, metadata::LevelFilter, error};
+use tracing::{error, info, metadata::LevelFilter};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 #[derive(Debug)]
@@ -23,7 +24,7 @@ enum ProcessResult {
 }
 
 #[tokio::main(flavor = "multi_thread")]
-async fn main() {
+async fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
     let processor_name = &args[1];
 
@@ -73,6 +74,8 @@ async fn main() {
     // explicitly close to gracefully shutdown
     channel.close().await.unwrap();
     connection.close().await.unwrap();
+
+    Ok(())
 }
 
 fn set_up_logging() {
