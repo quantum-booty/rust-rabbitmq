@@ -9,19 +9,12 @@ use amqprs::{
     connection::{Connection, OpenConnectionArguments},
     BasicProperties, DELIVERY_MODE_PERSISTENT,
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use rust_rabbitmq::message_types::TestMessage;
 use serde::Serialize;
 use tokio::time;
 use tracing::{error, info, metadata::LevelFilter};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
-
-#[derive(Debug)]
-enum ProcessResult {
-    Success,
-    Redeliver,
-    Failure,
-}
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
@@ -30,50 +23,54 @@ async fn main() -> Result<()> {
 
     set_up_logging();
 
-    // open a connection to RabbitMQ server
     let connection = Connection::open(&OpenConnectionArguments::new(
         "localhost",
         5672,
         "guest",
         "guest",
     ))
-    .await
-    .unwrap();
+    .await?;
 
     connection
         .register_callback(DefaultConnectionCallback)
-        .await
-        .unwrap();
+        .await?;
 
     // open a channel on the connection
-    let channel = connection.open_channel(None).await.unwrap();
-    channel
-        .register_callback(DefaultChannelCallback)
-        .await
-        .unwrap();
+    let channel = connection.open_channel(None).await?;
+    channel.register_callback(DefaultChannelCallback).await?;
 
+    if let Err(err) = process(&channel, processor_name).await {
+        error!("{err:?}");
+    }
+
+    // explicitly close to gracefully shutdown
+    channel.close().await?;
+    connection.close().await?;
+
+    Ok(())
+}
+
+async fn process(channel: &Channel, processor_name: &str) -> Result<()> {
+    // open a connection to RabbitMQ server
     let queue_name = "edge.do_something_processor";
     let routing_key = "edge.do_something_processor";
     let exchange_name = "edge.direct";
     let exchange_type = "direct";
+
     declare_topology(
-        &channel,
+        channel,
         queue_name,
         routing_key,
         exchange_name,
         exchange_type,
     )
-    .await;
+    .await?;
 
-    match processor_name.as_str() {
-        "process" => process(&channel, queue_name).await,
-        "generate" => test_generator(&channel, routing_key, exchange_name).await,
-        _ => error!("unrecognised processor type"),
-    }
-
-    // explicitly close to gracefully shutdown
-    channel.close().await.unwrap();
-    connection.close().await.unwrap();
+    match processor_name {
+        "process" => test_processor(channel, queue_name).await,
+        "generate" => test_generator(channel, routing_key, exchange_name).await,
+        _ => Err(anyhow!("unrecognised processor type")),
+    }?;
 
     Ok(())
 }
@@ -94,18 +91,18 @@ fn set_up_logging() {
         .ok();
 }
 
-async fn process(channel: &Channel, queue_name: &str) {
+async fn test_processor(channel: &Channel, queue_name: &str) -> Result<()> {
     info!("Starting process {queue_name}");
 
     let args = BasicConsumeArguments::new(queue_name, "edge_processor_tag");
-    let (ctag, mut messages_rx) = channel.basic_consume_rx(args).await.unwrap();
+    let (ctag, mut messages_rx) = channel.basic_consume_rx(args).await?;
     while let Some(message) = messages_rx.recv().await {
         let deliver = message.deliver.unwrap();
-        let message: TestMessage = serde_json::from_slice(&message.content.unwrap()).unwrap();
+        let message: TestMessage = serde_json::from_slice(&message.content.unwrap())?;
 
         info!("{ctag} has received a message {:?}", message);
-        let process_result = test_processor(message).await;
-        info!("processor result {:?}", process_result);
+
+        info!("processing message {:?}", message);
         // need ability to batch process messages
         // the processor potentially need sql connection, blob storage connection string, redis connection, configurations, etc
         // there should be separation of the queuing logic and processing logic
@@ -114,37 +111,39 @@ async fn process(channel: &Channel, queue_name: &str) {
         // if doing batch processing, can set multple = true to ack multiple items up to the delivery tag
         channel
             .basic_ack(BasicAckArguments::new(deliver.delivery_tag(), false))
-            .await
-            .unwrap();
+            .await?;
 
         time::sleep(time::Duration::from_millis(50)).await;
     }
+
+    Ok(())
 }
 
-async fn test_processor(message: TestMessage) -> ProcessResult {
-    info!("processing message {:?}", message);
-    ProcessResult::Success
-}
-
-async fn test_generator(channel: &Channel, routing_key: &str, exchange_name: &str) {
+async fn test_generator(channel: &Channel, routing_key: &str, exchange_name: &str) -> Result<()> {
     for i in 0.. {
         let message = TestMessage {
             publisher: "example generator".to_string(),
             data: format!("hello world {i}"),
         };
-        publish(channel, routing_key, exchange_name, message).await;
+        publish(channel, routing_key, exchange_name, message).await?;
         time::sleep(time::Duration::from_millis(30)).await;
     }
+    Ok(())
 }
 
-async fn publish<T>(channel: &Channel, routing_key: &str, exchange_name: &str, message: T)
+async fn publish<T>(
+    channel: &Channel,
+    routing_key: &str,
+    exchange_name: &str,
+    message: T,
+) -> Result<()>
 where
     T: Serialize + std::fmt::Display,
 {
     // create arguments for basic_publish
     let args = BasicPublishArguments::new(exchange_name, routing_key);
     info!("sending message {message}");
-    let content = serde_json::to_vec(&message).unwrap();
+    let content = serde_json::to_vec(&message)?;
     channel
         .basic_publish(
             BasicProperties::default()
@@ -154,8 +153,8 @@ where
             content,
             args,
         )
-        .await
-        .unwrap();
+        .await?;
+    Ok(())
 }
 
 async fn declare_topology(
@@ -164,7 +163,7 @@ async fn declare_topology(
     routing_key: &str,
     exchange_name: &str,
     exchange_type: &str,
-) {
+) -> Result<()> {
     // declare exchange
     channel
         .exchange_declare(
@@ -172,8 +171,7 @@ async fn declare_topology(
                 .durable(true)
                 .finish(),
         )
-        .await
-        .unwrap();
+        .await?;
 
     // declare a queue
     let (queue_name, _, _) = channel
@@ -182,8 +180,7 @@ async fn declare_topology(
                 .durable(true)
                 .finish(),
         )
-        .await
-        .unwrap()
+        .await?
         .unwrap();
 
     // bind the queue to exchange
@@ -193,8 +190,7 @@ async fn declare_topology(
             exchange_name,
             routing_key,
         ))
-        .await
-        .unwrap();
+        .await?;
 
     // set limit to prefetch count
     // to make sure messages are evenly distributed among consumers
@@ -202,6 +198,7 @@ async fn declare_topology(
     // https://www.rabbitmq.com/confirms.html#channel-qos-prefetch-throughput
     channel
         .basic_qos(BasicQosArguments::new(0, 300, false))
-        .await
-        .unwrap();
+        .await?;
+
+    Ok(())
 }
