@@ -27,13 +27,13 @@ useful for when you want to notify multiple consumers about a single event
 e.g. for logging, where there are multiple log systems for analysis or storage
 ### Fanout Design Pattern
 - declare the exchange, routing key is not used by fanout exchange
-  - consumer
-    - declase the exchange
-    - declares the queue
-      - with "" queue name, so the queue names are randomly generated
-      - with exclusive = true, so the queue is deleted when the consumer is dead
-      - bind the queue to the fanout exchange
-      - start consuming from that queue
+- consumer
+  - declase the exchange
+  - declares the queue
+    - with "" queue name, so the queue names are randomly generated
+    - with exclusive = true, so the queue is deleted when the consumer is dead
+    - bind the queue to the fanout exchange
+    - start consuming from that queue
 - producer
   - declares the exchange
   - publishes messages to that exchange
