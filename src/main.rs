@@ -146,6 +146,7 @@ where
         .basic_publish(
             BasicProperties::default()
                 .with_delivery_mode(DELIVERY_MODE_PERSISTENT)
+                .with_content_type("application/json")
                 .finish(),
             content,
             args,
