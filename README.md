@@ -46,8 +46,10 @@ e.g. for logging, where there are multiple log systems for analysis or storage
 - if wild cards are not used, topic exchange behaves just like direct
 
 # Todo
-- [ ] finish rabbitmq tutorial
-- [ ] generalize processors logic
+- [ ] refactor and generalize processors logic
+  - how to allow processors with different arguments?
+- [ ] test sqlx
+- [ ] test aws appconfig
 - [ ] add global configuration
 
 # Python Equivalent

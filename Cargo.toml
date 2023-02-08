@@ -6,8 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-amqprs = { version = "1.0.6", features = ["traces", "compliance_assert"] }
+amqprs = { version = "1.0.7", features = ["traces", "compliance_assert"] }
 anyhow = "1.0.69"
+async-trait = "0.1.64"
+aws-config = "0.54.1"
+aws-sdk-appconfigdata = "0.24.0"
 itertools = "0.10.5"
 serde = { version = "1.0.152", features = ["serde_derive"] }
 serde_json = "1.0.92"

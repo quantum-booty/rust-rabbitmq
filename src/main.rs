@@ -3,18 +3,24 @@ use std::env;
 use amqprs::{
     callbacks::{DefaultChannelCallback, DefaultConnectionCallback},
     channel::{
-        BasicAckArguments, BasicConsumeArguments, BasicPublishArguments, BasicQosArguments,
-        Channel, ExchangeDeclareArguments, QueueBindArguments, QueueDeclareArguments,
+        BasicAckArguments, BasicQosArguments, Channel, ExchangeDeclareArguments,
+        QueueBindArguments, QueueDeclareArguments,
     },
     connection::{Connection, OpenConnectionArguments},
-    BasicProperties, DELIVERY_MODE_PERSISTENT,
 };
 use anyhow::{anyhow, Result};
-use rust_rabbitmq::message_types::TestMessage;
-use serde::Serialize;
+use rust_rabbitmq::{
+    message_queue::{
+        rabbit::{RabbitMessageQueueReceiver, RabbitQueueMessagePublisher},
+        MessageQueuePublisher, MessageQueueReceiver,
+    },
+    message_types::TestMessage,
+};
 use tokio::time;
 use tracing::{error, info, metadata::LevelFilter};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+
+static EXCHANGE: &str = "edge.direct";
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
@@ -54,21 +60,13 @@ async fn process(channel: &Channel, processor_name: &str) -> Result<()> {
     // open a connection to RabbitMQ server
     let queue_name = "edge.do_something_processor";
     let routing_key = "edge.do_something_processor";
-    let exchange_name = "edge.direct";
     let exchange_type = "direct";
 
-    declare_topology(
-        channel,
-        queue_name,
-        routing_key,
-        exchange_name,
-        exchange_type,
-    )
-    .await?;
+    declare_topology(channel, queue_name, routing_key, exchange_type).await?;
 
     match processor_name {
-        "process" => test_processor(channel, queue_name).await,
-        "generate" => test_generator(channel, routing_key, exchange_name).await,
+        "process" => test_processor(channel).await,
+        "generate" => test_generator(channel).await,
         _ => Err(anyhow!("unrecognised processor type")),
     }?;
 
@@ -91,16 +89,18 @@ fn set_up_logging() {
         .ok();
 }
 
-async fn test_processor(channel: &Channel, queue_name: &str) -> Result<()> {
-    info!("Starting process {queue_name}");
+async fn test_processor(channel: &Channel) -> Result<()> {
+    let queue_name = "edge.do_something_processor";
 
-    let args = BasicConsumeArguments::new(queue_name, "edge_processor_tag");
-    let (ctag, mut messages_rx) = channel.basic_consume_rx(args).await?;
-    while let Some(message) = messages_rx.recv().await {
+    info!("Starting process {queue_name}");
+    let mut receiver =
+        RabbitMessageQueueReceiver::new(channel, queue_name, "yaya_processor").await?;
+
+    while let Some(message) = receiver.receive().await? {
         let deliver = message.deliver.unwrap();
         let message: TestMessage = serde_json::from_slice(&message.content.unwrap())?;
 
-        info!("{ctag} has received a message {:?}", message);
+        info!("received a message {:?}", message);
 
         info!("processing message {:?}", message);
         // need ability to batch process messages
@@ -119,41 +119,18 @@ async fn test_processor(channel: &Channel, queue_name: &str) -> Result<()> {
     Ok(())
 }
 
-async fn test_generator(channel: &Channel, routing_key: &str, exchange_name: &str) -> Result<()> {
+async fn test_generator(channel: &Channel) -> Result<()> {
+    let queue_name = "edge.do_something_processor";
+    let publisher = RabbitQueueMessagePublisher::new(channel, EXCHANGE, queue_name);
     for i in 0.. {
         let message = TestMessage {
             publisher: "example generator".to_string(),
             data: format!("hello world {i}"),
         };
-        publish(channel, routing_key, exchange_name, message).await?;
+
+        publisher.publish(message).await?;
         time::sleep(time::Duration::from_millis(30)).await;
     }
-    Ok(())
-}
-
-async fn publish<T>(
-    channel: &Channel,
-    routing_key: &str,
-    exchange_name: &str,
-    message: T,
-) -> Result<()>
-where
-    T: Serialize + std::fmt::Display,
-{
-    // create arguments for basic_publish
-    let args = BasicPublishArguments::new(exchange_name, routing_key);
-    info!("sending message {message}");
-    let content = serde_json::to_vec(&message)?;
-    channel
-        .basic_publish(
-            BasicProperties::default()
-                .with_delivery_mode(DELIVERY_MODE_PERSISTENT)
-                .with_content_type("application/json")
-                .finish(),
-            content,
-            args,
-        )
-        .await?;
     Ok(())
 }
 
@@ -161,13 +138,12 @@ async fn declare_topology(
     channel: &Channel,
     queue_name: &str,
     routing_key: &str,
-    exchange_name: &str,
     exchange_type: &str,
 ) -> Result<()> {
     // declare exchange
     channel
         .exchange_declare(
-            ExchangeDeclareArguments::new(exchange_name, exchange_type)
+            ExchangeDeclareArguments::new(EXCHANGE, exchange_type)
                 .durable(true)
                 .finish(),
         )
@@ -185,11 +161,7 @@ async fn declare_topology(
 
     // bind the queue to exchange
     channel
-        .queue_bind(QueueBindArguments::new(
-            &queue_name,
-            exchange_name,
-            routing_key,
-        ))
+        .queue_bind(QueueBindArguments::new(&queue_name, EXCHANGE, routing_key))
         .await?;
 
     // set limit to prefetch count
