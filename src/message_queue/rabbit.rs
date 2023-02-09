@@ -1,5 +1,4 @@
 use std::sync::Arc;
-
 use amqprs::{
     channel::{
         BasicAckArguments, BasicConsumeArguments, BasicPublishArguments, BasicQosArguments,

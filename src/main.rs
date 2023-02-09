@@ -1,17 +1,17 @@
-use std::sync::Arc;
-
 use amqprs::{
     callbacks::{DefaultChannelCallback, DefaultConnectionCallback},
     channel::{Channel, ExchangeDeclareArguments},
     connection::{Connection, OpenConnectionArguments},
 };
 use anyhow::{anyhow, Result};
+use std::sync::Arc;
+use tracing::{error, info, metadata::LevelFilter};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+
 use rust_rabbitmq::{
     message_queue::rabbit::{EXCHANGE, EXCHANGE_TYPE},
     processors::{test_generator::test_generate, test_processor::test_process},
 };
-use tracing::{error, info, metadata::LevelFilter};
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
