@@ -1,5 +1,5 @@
-use async_trait::async_trait;
 use anyhow::Result;
+use async_trait::async_trait;
 use serde::Serialize;
 
 pub mod rabbit;
@@ -7,7 +7,9 @@ pub mod rabbit;
 #[async_trait]
 pub trait MessageQueueReceiver {
     type Message;
-    async fn receive(&mut self) -> Result<Self::Message>;
+    type AckId;
+    async fn receive(&mut self) -> Option<(Self::Message, Self::AckId)>;
+    async fn ack(&self, ack_id: Self::AckId) -> Result<()>;
 }
 
 #[async_trait]

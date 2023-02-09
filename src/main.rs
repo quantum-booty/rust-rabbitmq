@@ -8,7 +8,7 @@ use amqprs::{
 use anyhow::{anyhow, Result};
 use rust_rabbitmq::{
     message_queue::rabbit::{EXCHANGE, EXCHANGE_TYPE},
-    processors::{test_generator::TestGenerator, test_processor::TestProcessor, Processor},
+    processors::{test_generator::test_generate, test_processor::test_process},
 };
 use tracing::{error, info, metadata::LevelFilter};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
@@ -61,8 +61,8 @@ async fn main() -> Result<()> {
 
 async fn process(channel: Arc<Channel>, processor_name: &str) -> Result<()> {
     match processor_name {
-        "process" => TestProcessor::new(channel).await?.run().await,
-        "generate" => TestGenerator::new(channel).await?.run().await,
+        "process" => test_process(channel).await,
+        "generate" => test_generate(channel).await,
         _ => Err(anyhow!("unrecognised processor type")),
     }
 }

@@ -5,7 +5,7 @@ use amqprs::{
         BasicAckArguments, BasicConsumeArguments, BasicPublishArguments, BasicQosArguments,
         Channel, ConsumerMessage, QueueBindArguments, QueueDeclareArguments,
     },
-    BasicProperties, Deliver, DELIVERY_MODE_PERSISTENT,
+    BasicProperties, DELIVERY_MODE_PERSISTENT,
 };
 use anyhow::{Error, Result};
 use async_trait::async_trait;
@@ -59,6 +59,7 @@ impl MessageQueuePublisher for RabbitQueueMessagePublisher {
     }
 }
 
+#[allow(dead_code)]
 pub struct RabbitMessageQueueReceiver {
     receiver: UnboundedReceiver<ConsumerMessage>,
     channel: Arc<Channel>,
@@ -77,20 +78,26 @@ impl RabbitMessageQueueReceiver {
             queue_name: queue_name.to_string(),
         })
     }
-
-    pub async fn ack(&self, deliver: Deliver) -> Result<()> {
-        self.channel
-            .basic_ack(BasicAckArguments::new(deliver.delivery_tag(), false))
-            .await
-            .map_err(Error::from)
-    }
 }
 
 #[async_trait]
 impl MessageQueueReceiver for RabbitMessageQueueReceiver {
-    type Message = Option<ConsumerMessage>;
-    async fn receive(&mut self) -> Result<Self::Message> {
-        Ok(self.receiver.recv().await)
+    type Message = ConsumerMessage;
+    type AckId = u64;
+
+    async fn receive(&mut self) -> Option<(Self::Message, Self::AckId)> {
+        let message = self.receiver.recv().await;
+        message.map(|m| {
+            let ack_id = m.deliver.as_ref().unwrap().delivery_tag();
+            (m, ack_id)
+        })
+    }
+
+    async fn ack(&self, ack_id: Self::AckId) -> Result<()> {
+        self.channel
+            .basic_ack(BasicAckArguments::new(ack_id, false))
+            .await
+            .map_err(Error::from)
     }
 }
 
