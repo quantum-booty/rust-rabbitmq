@@ -1,9 +1,8 @@
 use crate::processors::Processor;
-use std::sync::Arc;
-
-use amqprs::channel::{BasicAckArguments, Channel};
+use amqprs::channel::Channel;
 use anyhow::Result;
 use async_trait::async_trait;
+use std::sync::Arc;
 use tokio::time;
 use tracing::info;
 
@@ -14,7 +13,6 @@ use crate::{
 
 pub struct TestProcessor {
     receiver: RabbitMessageQueueReceiver,
-    channel: Arc<Channel>,
 }
 
 impl TestProcessor {
@@ -23,9 +21,9 @@ impl TestProcessor {
 
         info!("Starting process {queue_name}");
         let receiver =
-            RabbitMessageQueueReceiver::new(&channel, queue_name, "yaya_processor").await?;
+            RabbitMessageQueueReceiver::new(channel.clone(), queue_name, "yaya_processor").await?;
 
-        Ok(Self { receiver, channel })
+        Ok(Self { receiver })
     }
 }
 
@@ -45,9 +43,7 @@ impl Processor for TestProcessor {
             // once_cell global configuration
 
             // if doing batch processing, can set multple = true to ack multiple items up to the delivery tag
-            self.channel
-                .basic_ack(BasicAckArguments::new(deliver.delivery_tag(), false))
-                .await?;
+            self.receiver.ack(deliver).await?;
 
             time::sleep(time::Duration::from_millis(50)).await;
         }

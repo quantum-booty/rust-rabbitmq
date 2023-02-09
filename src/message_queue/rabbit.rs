@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use amqprs::{
     channel::{
-        BasicConsumeArguments, BasicPublishArguments, BasicQosArguments, Channel, ConsumerMessage,
-        QueueBindArguments, QueueDeclareArguments,
+        BasicAckArguments, BasicConsumeArguments, BasicPublishArguments, BasicQosArguments,
+        Channel, ConsumerMessage, QueueBindArguments, QueueDeclareArguments,
     },
-    BasicProperties, DELIVERY_MODE_PERSISTENT,
+    BasicProperties, Deliver, DELIVERY_MODE_PERSISTENT,
 };
-use anyhow::Result;
+use anyhow::{Error, Result};
 use async_trait::async_trait;
 use serde::Serialize;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -61,19 +61,28 @@ impl MessageQueuePublisher for RabbitQueueMessagePublisher {
 
 pub struct RabbitMessageQueueReceiver {
     receiver: UnboundedReceiver<ConsumerMessage>,
+    channel: Arc<Channel>,
     consumer_tag: String,
     queue_name: String,
 }
 
 impl RabbitMessageQueueReceiver {
-    pub async fn new(channel: &Channel, queue_name: &str, consumer_tag: &str) -> Result<Self> {
+    pub async fn new(channel: Arc<Channel>, queue_name: &str, consumer_tag: &str) -> Result<Self> {
         let args = BasicConsumeArguments::new(queue_name, consumer_tag);
         let (_ctag, messages_rx) = channel.basic_consume_rx(args).await?;
         Ok(RabbitMessageQueueReceiver {
             receiver: messages_rx,
+            channel,
             consumer_tag: consumer_tag.to_string(),
             queue_name: queue_name.to_string(),
         })
+    }
+
+    pub async fn ack(&self, deliver: Deliver) -> Result<()> {
+        self.channel
+            .basic_ack(BasicAckArguments::new(deliver.delivery_tag(), false))
+            .await
+            .map_err(Error::from)
     }
 }
 
