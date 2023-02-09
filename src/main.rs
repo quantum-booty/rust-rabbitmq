@@ -1,29 +1,22 @@
-use std::env;
+use std::sync::Arc;
 
 use amqprs::{
     callbacks::{DefaultChannelCallback, DefaultConnectionCallback},
-    channel::{
-        BasicAckArguments, BasicQosArguments, Channel, ExchangeDeclareArguments,
-        QueueBindArguments, QueueDeclareArguments,
-    },
+    channel::{Channel, ExchangeDeclareArguments},
     connection::{Connection, OpenConnectionArguments},
 };
 use anyhow::{anyhow, Result};
 use rust_rabbitmq::{
-    message_queue::{
-        rabbit::{RabbitMessageQueueReceiver, RabbitQueueMessagePublisher},
-        MessageQueuePublisher, MessageQueueReceiver,
-    },
-    message_types::TestMessage,
+    message_queue::rabbit::{EXCHANGE, EXCHANGE_TYPE},
+    processors::{test_generator::TestGenerator, test_processor::TestProcessor, Processor},
 };
-use tokio::time;
 use tracing::{error, info, metadata::LevelFilter};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
-static EXCHANGE: &str = "edge.direct";
-
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
+    // TODO: use clap for cli
+    use std::env;
     let args: Vec<String> = env::args().collect();
     let processor_name = &args[1];
 
@@ -45,32 +38,33 @@ async fn main() -> Result<()> {
     let channel = connection.open_channel(None).await?;
     channel.register_callback(DefaultChannelCallback).await?;
 
-    if let Err(err) = process(&channel, processor_name).await {
+    // declare exchange
+    channel
+        .exchange_declare(
+            ExchangeDeclareArguments::new(EXCHANGE, EXCHANGE_TYPE)
+                .durable(true)
+                .finish(),
+        )
+        .await?;
+
+    info!("start processing");
+    if let Err(err) = process(Arc::new(channel), processor_name).await {
         error!("{err:?}");
     }
 
     // explicitly close to gracefully shutdown
-    channel.close().await?;
+    // channel.close().await?;
     connection.close().await?;
 
     Ok(())
 }
 
-async fn process(channel: &Channel, processor_name: &str) -> Result<()> {
-    // open a connection to RabbitMQ server
-    let queue_name = "edge.do_something_processor";
-    let routing_key = "edge.do_something_processor";
-    let exchange_type = "direct";
-
-    declare_topology(channel, queue_name, routing_key, exchange_type).await?;
-
+async fn process(channel: Arc<Channel>, processor_name: &str) -> Result<()> {
     match processor_name {
-        "process" => test_processor(channel).await,
-        "generate" => test_generator(channel).await,
+        "process" => TestProcessor::new(channel).await?.run().await,
+        "generate" => TestGenerator::new(channel).await?.run().await,
         _ => Err(anyhow!("unrecognised processor type")),
-    }?;
-
-    Ok(())
+    }
 }
 
 fn set_up_logging() {
@@ -87,90 +81,4 @@ fn set_up_logging() {
         .with(filter)
         .try_init()
         .ok();
-}
-
-async fn test_processor(channel: &Channel) -> Result<()> {
-    let queue_name = "edge.do_something_processor";
-
-    info!("Starting process {queue_name}");
-    let mut receiver =
-        RabbitMessageQueueReceiver::new(channel, queue_name, "yaya_processor").await?;
-
-    while let Some(message) = receiver.receive().await? {
-        let deliver = message.deliver.unwrap();
-        let message: TestMessage = serde_json::from_slice(&message.content.unwrap())?;
-
-        info!("received a message {:?}", message);
-
-        info!("processing message {:?}", message);
-        // need ability to batch process messages
-        // the processor potentially need sql connection, blob storage connection string, redis connection, configurations, etc
-        // there should be separation of the queuing logic and processing logic
-        // once_cell global configuration
-
-        // if doing batch processing, can set multple = true to ack multiple items up to the delivery tag
-        channel
-            .basic_ack(BasicAckArguments::new(deliver.delivery_tag(), false))
-            .await?;
-
-        time::sleep(time::Duration::from_millis(50)).await;
-    }
-
-    Ok(())
-}
-
-async fn test_generator(channel: &Channel) -> Result<()> {
-    let queue_name = "edge.do_something_processor";
-    let publisher = RabbitQueueMessagePublisher::new(channel, EXCHANGE, queue_name);
-    for i in 0.. {
-        let message = TestMessage {
-            publisher: "example generator".to_string(),
-            data: format!("hello world {i}"),
-        };
-
-        publisher.publish(message).await?;
-        time::sleep(time::Duration::from_millis(30)).await;
-    }
-    Ok(())
-}
-
-async fn declare_topology(
-    channel: &Channel,
-    queue_name: &str,
-    routing_key: &str,
-    exchange_type: &str,
-) -> Result<()> {
-    // declare exchange
-    channel
-        .exchange_declare(
-            ExchangeDeclareArguments::new(EXCHANGE, exchange_type)
-                .durable(true)
-                .finish(),
-        )
-        .await?;
-
-    // declare a queue
-    let (queue_name, _, _) = channel
-        .queue_declare(
-            QueueDeclareArguments::new(queue_name)
-                .durable(true)
-                .finish(),
-        )
-        .await?
-        .unwrap();
-
-    // bind the queue to exchange
-    channel
-        .queue_bind(QueueBindArguments::new(&queue_name, EXCHANGE, routing_key))
-        .await?;
-
-    // set limit to prefetch count
-    // to make sure messages are evenly distributed among consumers
-    // and prevent the consumer from being overwhelmed with messages
-    // https://www.rabbitmq.com/confirms.html#channel-qos-prefetch-throughput
-    channel
-        .basic_qos(BasicQosArguments::new(0, 300, false))
-        .await?;
-
-    Ok(())
 }
