@@ -1,23 +1,20 @@
-use amqprs::channel::Channel;
 use anyhow::Result;
-use std::sync::Arc;
 use tokio::time;
 use tracing::info;
 
 use crate::{
-    message_queue::{rabbit::RabbitMessageQueueReceiver, MessageQueueReceiver},
+    message_queue::{rabbit::RabbitClient, MessageQueueReceiver},
     message_types::TestMessage,
 };
 
-pub async fn test_process(channel: Arc<Channel>) -> Result<()> {
-    let queue_name = "edge.do_something_processor";
+pub async fn test_process(rabbit_client: RabbitClient) -> Result<()> {
+    let queue = "edge.do_something_processor";
+    info!("Starting process {queue}");
 
-    info!("Starting process {queue_name}");
-    let mut receiver =
-        RabbitMessageQueueReceiver::new(channel.clone(), queue_name, "yaya_processor").await?;
+    let mut receiver = rabbit_client.get_receiver(queue, "test_processor").await?;
 
-    while let Some((message, ack_id)) = receiver.receive().await {
-        let message_data: TestMessage = serde_json::from_slice(&message.content.unwrap())?;
+    while let Some(message) = receiver.receive().await {
+        let message_data: TestMessage = serde_json::from_slice(message.content.as_ref().unwrap())?;
         info!("received a message {:?}", message_data);
 
         do_run(message_data);
@@ -28,7 +25,7 @@ pub async fn test_process(channel: Arc<Channel>) -> Result<()> {
         // once_cell global configuration
 
         // if doing batch processing, can set multple = true to ack multiple items up to the delivery tag
-        receiver.ack(ack_id).await?;
+        receiver.ack(&message).await?;
 
         time::sleep(time::Duration::from_millis(50)).await;
     }

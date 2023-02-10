@@ -7,9 +7,8 @@ pub mod rabbit;
 #[async_trait]
 pub trait MessageQueueReceiver {
     type Message;
-    type AckId;
-    async fn receive(&mut self) -> Option<(Self::Message, Self::AckId)>;
-    async fn ack(&self, ack_id: Self::AckId) -> Result<()>;
+    async fn receive(&mut self) -> Option<Self::Message>;
+    async fn ack(&self, message: &Self::Message) -> Result<()>;
 }
 
 #[async_trait]

@@ -1,24 +1,15 @@
-use amqprs::channel::Channel;
 use anyhow::Result;
-use std::sync::Arc;
 use tokio::time;
 
 use crate::{
-    message_queue::{
-        rabbit::{declare_queue, RabbitQueueMessagePublisher, EXCHANGE},
-        MessageQueuePublisher,
-    },
+    message_queue::{rabbit::RabbitClient, MessageQueuePublisher},
     message_types::TestMessage,
 };
 
-pub async fn test_generate(channel: Arc<Channel>) -> Result<()> {
-    let queue_name = "edge.do_something_processor";
-    declare_queue(&channel, EXCHANGE, queue_name, 1).await?;
-    let publisher = RabbitQueueMessagePublisher::new(channel.clone(), EXCHANGE, queue_name);
-    do_run(publisher).await
-}
-
-async fn do_run(publisher: impl MessageQueuePublisher) -> Result<()> {
+pub async fn test_generate(rabbit_client: RabbitClient) -> Result<()> {
+    let queue = "edge.do_something_processor";
+    rabbit_client.declare_queue(queue, 1).await?;
+    let publisher = rabbit_client.get_publisher(queue).await?;
     for i in 0.. {
         let message = TestMessage {
             publisher: "example generator".to_string(),
