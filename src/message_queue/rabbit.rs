@@ -10,7 +10,7 @@ use amqprs::{
 };
 use anyhow::{Error, Result};
 use async_trait::async_trait;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::info;
 
@@ -158,17 +158,29 @@ impl RabbitMessageQueueReceiver {
     }
 }
 
+pub struct RabbitMessage(ConsumerMessage);
+
+impl RabbitMessage {
+    pub fn json_deserialise<T>(&self) -> Result<T>
+    where
+        for<'a> T: Deserialize<'a>,
+    {
+        let message_data: T = serde_json::from_slice(self.0.content.as_ref().unwrap())?;
+        Ok(message_data)
+    }
+}
+
 #[async_trait]
 impl MessageQueueReceiver for RabbitMessageQueueReceiver {
-    type Message = ConsumerMessage;
+    type Message = RabbitMessage;
     async fn receive(&mut self) -> Option<Self::Message> {
-        self.receiver.recv().await
+        self.receiver.recv().await.map(RabbitMessage)
     }
 
     async fn ack(&self, message: &Self::Message) -> Result<()> {
         self.channel
             .basic_ack(BasicAckArguments::new(
-                message.deliver.as_ref().unwrap().delivery_tag(),
+                message.0.deliver.as_ref().unwrap().delivery_tag(),
                 false,
             ))
             .await

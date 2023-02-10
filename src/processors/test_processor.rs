@@ -14,7 +14,7 @@ pub async fn test_process(rabbit_client: RabbitClient) -> Result<()> {
     let mut receiver = rabbit_client.get_receiver(queue, "test_processor").await?;
 
     while let Some(message) = receiver.receive().await {
-        let message_data: TestMessage = serde_json::from_slice(message.content.as_ref().unwrap())?;
+        let message_data = message.json_deserialise::<TestMessage>()?;
         info!("received a message {:?}", message_data);
 
         do_run(message_data);
