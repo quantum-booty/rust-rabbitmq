@@ -8,7 +8,7 @@ use crate::{
 };
 
 pub async fn test_process(rabbit_client: RabbitClient) -> Result<()> {
-    let queue = "edge.do_something_processor";
+    let queue = "test_queue_name";
     info!("Starting process {queue}");
 
     let mut receiver = rabbit_client.get_receiver(queue, "test_processor").await?;

@@ -158,9 +158,6 @@ impl RabbitMessageQueueReceiver {
     }
 }
 
-// #[derive(Deserialize, Serialize, Debug)]
-// struct RabbitMessage(ConsumerMessage);
-
 #[async_trait]
 impl MessageQueueReceiver for RabbitMessageQueueReceiver {
     type Message = ConsumerMessage;

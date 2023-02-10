@@ -7,7 +7,7 @@ use crate::{
 };
 
 pub async fn test_generate(rabbit_client: RabbitClient) -> Result<()> {
-    let queue = "edge.do_something_processor";
+    let queue = "test_queue_name";
     rabbit_client.declare_queue(queue, 1).await?;
     let publisher = rabbit_client.get_publisher(queue).await?;
     for i in 0.. {
