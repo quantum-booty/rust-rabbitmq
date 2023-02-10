@@ -1,3 +1,12 @@
+# Local Testing
+```
+docker run -d --hostname my-rabbit --name some-rabbit rabbitmq:3                                                                           
+docker run -d --name some-rabbit-management -p 5672:5672 -p 5673:5673 -p 15672:15672 rabbitmq:3-management
+cargo run -- generate
+cargo run -- process
+```
+
+# Note
 To avoid the rabbitmq server timeing out the consumer for long running tasks, increase ack-timeout
 https://www.rabbitmq.com/consumers.html#acknowledgement-timeout
 the ack timeout can be set in the configuration file
