@@ -9,8 +9,8 @@ edition = "2021"
 amqprs = { version = "1.0.7", features = ["traces", "compliance_assert"] }
 anyhow = "1.0.69"
 async-trait = "0.1.64"
-aws-config = "0.54.1"
-aws-sdk-appconfigdata = "0.24.0"
+# aws-config = "0.54.1"
+# aws-sdk-appconfigdata = "0.24.0"
 clap = { version = "4.1.4", features = ["derive"] }
 itertools = "0.10.5"
 serde = { version = "1.0.152", features = ["serde_derive"] }

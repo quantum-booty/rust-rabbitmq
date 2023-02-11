@@ -22,7 +22,6 @@ static EXCHANGE_TYPE: &str = "direct";
 
 pub struct RabbitClient {
     conn: Connection,
-    channel: Channel,
 }
 
 impl RabbitClient {
@@ -40,53 +39,49 @@ impl RabbitClient {
             .register_callback(DefaultConnectionCallback)
             .await?;
         let channel = Self::get_channel(&connection).await?;
-        Ok(Self {
-            conn: connection,
-            channel,
-        })
-    }
-    pub async fn get_publisher(&self, queue: &str) -> Result<impl MessageQueuePublisher> {
-        Ok(RabbitQueueMessagePublisher::new(
-            Self::get_channel(&self.conn).await?,
-            EXCHANGE,
-            queue,
-        ))
-    }
-
-    pub async fn get_receiver(&self, queue: &str, tag: &str) -> Result<RabbitMessageQueueReceiver> {
-        RabbitMessageQueueReceiver::new(Self::get_channel(&self.conn).await?, queue, tag).await
-    }
-
-    pub async fn declare_topology(&self) -> Result<()> {
-        self.channel
+        channel
             .exchange_declare(
                 ExchangeDeclareArguments::new(EXCHANGE, EXCHANGE_TYPE)
                     .durable(true)
                     .finish(),
             )
             .await?;
-        Ok(())
+        Ok(Self { conn: connection })
+    }
+    pub async fn get_publisher(&self, queue: &str) -> Result<impl MessageQueuePublisher> {
+        let channel = Self::get_channel(&self.conn).await?;
+        self.declare_queue(&channel, queue).await?;
+        Ok(RabbitQueueMessagePublisher::new(channel, EXCHANGE, queue))
     }
 
-    pub async fn declare_queue(&self, queue: &str, prefetch_count: u16) -> Result<()> {
-        self.channel
+    pub async fn get_receiver(
+        &self,
+        queue: &str,
+        tag: &str,
+        prefetch_count: u16,
+    ) -> Result<RabbitMessageQueueReceiver> {
+        let channel = Self::get_channel(&self.conn).await?;
+        self.declare_queue(&channel, queue).await?;
+        // set limit to prefetch count
+        // to make sure messages are evenly distributed among consumers
+        // and prevent the consumer from being overwhelmed with messages
+        // https://www.rabbitmq.com/confirms.html#channel-qos-prefetch-throughput
+        channel
+            .basic_qos(BasicQosArguments::new(0, prefetch_count, false))
+            .await?;
+        RabbitMessageQueueReceiver::new(channel, queue, tag).await
+    }
+
+    async fn declare_queue(&self, channel: &Channel, queue: &str) -> Result<()> {
+        channel
             .queue_declare(QueueDeclareArguments::new(queue).durable(true).finish())
             .await?
             .unwrap();
 
         // bind the queue to exchange
-        self.channel
+        channel
             .queue_bind(QueueBindArguments::new(queue, EXCHANGE, queue))
             .await?;
-
-        // set limit to prefetch count
-        // to make sure messages are evenly distributed among consumers
-        // and prevent the consumer from being overwhelmed with messages
-        // https://www.rabbitmq.com/confirms.html#channel-qos-prefetch-throughput
-        self.channel
-            .basic_qos(BasicQosArguments::new(0, prefetch_count, false))
-            .await?;
-
         Ok(())
     }
 

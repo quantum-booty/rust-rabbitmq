@@ -17,7 +17,6 @@ async fn main() -> Result<()> {
     set_up_logging();
 
     let rabbit_client = RabbitClient::new().await?;
-    rabbit_client.declare_topology().await?;
 
     info!("start processing");
     if let Err(err) = process(rabbit_client, processor_name).await {
