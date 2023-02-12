@@ -6,7 +6,7 @@ use crate::{
     message_types::TestMessage,
 };
 
-pub async fn test_generate(rabbit_client: RabbitClient) -> Result<()> {
+pub async fn test_generate(rabbit_client: RabbitClient, wait_ms: u64) -> Result<()> {
     let queue = "test_queue_name";
     let publisher = rabbit_client.get_publisher(queue).await?;
     for i in 0.. {
@@ -16,7 +16,7 @@ pub async fn test_generate(rabbit_client: RabbitClient) -> Result<()> {
         };
 
         publisher.publish(message).await?;
-        time::sleep(time::Duration::from_millis(30)).await;
+        time::sleep(time::Duration::from_millis(wait_ms)).await;
     }
     Ok(())
 }

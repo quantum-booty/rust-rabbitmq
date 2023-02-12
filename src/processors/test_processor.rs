@@ -7,7 +7,7 @@ use crate::{
     message_types::TestMessage,
 };
 
-pub async fn test_process(rabbit_client: RabbitClient) -> Result<()> {
+pub async fn test_process(rabbit_client: RabbitClient, wait_ms: u64) -> Result<()> {
     let queue = "test_queue_name";
     info!("Starting process {queue}");
 
@@ -29,7 +29,7 @@ pub async fn test_process(rabbit_client: RabbitClient) -> Result<()> {
         // if doing batch processing, can set multple = true to ack multiple items up to the delivery tag
         receiver.ack(&message).await?;
 
-        time::sleep(time::Duration::from_millis(50)).await;
+        time::sleep(time::Duration::from_millis(wait_ms)).await;
     }
 
     Ok(())

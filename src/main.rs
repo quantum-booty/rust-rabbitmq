@@ -1,36 +1,29 @@
-use anyhow::{anyhow, Result};
-use tracing::{error, info, metadata::LevelFilter};
+use anyhow::Result;
+use clap::Parser;
+use tracing::{info, metadata::LevelFilter};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 use rust_rabbitmq::{
+    cli::{Cli, Processors},
     message_queue::rabbit::RabbitClient,
     processors::{test_generator::test_generate, test_processor::test_process},
 };
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
-    // TODO: use clap for cli
-    use std::env;
-    let args: Vec<String> = env::args().collect();
-    let processor_name = &args[1];
+    let args = Cli::parse();
 
     set_up_logging();
 
     let rabbit_client = RabbitClient::new().await?;
 
     info!("start processing");
-    if let Err(err) = process(rabbit_client, processor_name).await {
-        error!("{err:?}");
+    match args.processor {
+        Processors::TestProcess(args) => test_process(rabbit_client, args.wait_ms).await?,
+        Processors::TestGenerate(args) => test_generate(rabbit_client, args.wait_ms).await?,
     }
-    Ok(())
-}
 
-async fn process(rabbit_client: RabbitClient, processor_name: &str) -> Result<()> {
-    match processor_name {
-        "process" => test_process(rabbit_client).await,
-        "generate" => test_generate(rabbit_client).await,
-        _ => Err(anyhow!("unrecognised processor type")),
-    }
+    Ok(())
 }
 
 fn set_up_logging() {
