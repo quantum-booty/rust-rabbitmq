@@ -2,6 +2,8 @@ use clap::{arg, Args, Parser, Subcommand};
 
 #[derive(Parser)]
 pub struct Cli {
+    #[arg(long, default_value = "dev")]
+    pub env: String,
     #[command(subcommand)]
     pub processor: Processors,
 }

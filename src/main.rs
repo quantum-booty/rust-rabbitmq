@@ -17,7 +17,7 @@ async fn main() -> Result<()> {
 
     let rabbit_client = RabbitClient::new().await?;
 
-    info!("start processing");
+    info!("start processing in {}", args.env);
     match args.processor {
         Processors::TestProcess(args) => test_process(rabbit_client, args.wait_ms).await?,
         Processors::TestGenerate(args) => test_generate(rabbit_client, args.wait_ms).await?,
