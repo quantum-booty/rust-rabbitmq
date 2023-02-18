@@ -1,5 +1,6 @@
 use anyhow::Result;
 use tokio::time;
+use tracing::info;
 
 use crate::{
     message_queue::{rabbit::RabbitClient, MessageQueuePublisher},
@@ -15,6 +16,7 @@ pub async fn test_generate(rabbit_client: RabbitClient, wait_ms: u64) -> Result<
             data: format!("hello world {i}"),
         };
 
+        info!("sending message {message}");
         publisher.publish(message).await?;
         time::sleep(time::Duration::from_millis(wait_ms)).await;
     }

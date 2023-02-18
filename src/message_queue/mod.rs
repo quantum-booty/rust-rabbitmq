@@ -15,5 +15,5 @@ pub trait MessageQueueReceiver {
 pub trait MessageQueuePublisher {
     async fn publish<T>(&self, message: T) -> Result<()>
     where
-        T: Serialize + std::fmt::Display + Send;
+        T: Serialize + Send;
 }

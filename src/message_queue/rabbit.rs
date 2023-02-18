@@ -12,7 +12,6 @@ use anyhow::{Error, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedReceiver;
-use tracing::info;
 
 use super::MessageQueuePublisher;
 use super::MessageQueueReceiver;
@@ -112,10 +111,9 @@ impl RabbitQueueMessagePublisher {
 impl MessageQueuePublisher for RabbitQueueMessagePublisher {
     async fn publish<T>(&self, message: T) -> Result<()>
     where
-        T: Serialize + std::fmt::Display + Send,
+        T: Serialize + Send,
     {
         let args = BasicPublishArguments::new(&self.exchange, &self.routing_key);
-        info!("sending message {message}");
         // todo: The serialization method can be made abstract
         let content = serde_json::to_vec(&message)?;
         self.channel
