@@ -3,3 +3,4 @@ pub mod processors;
 pub mod config;
 pub mod message_queue;
 pub mod cli;
+pub mod log;
