@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use dotenvy::dotenv;
 use tracing::info;
 
 use rust_rabbitmq::{
@@ -13,7 +14,9 @@ use rust_rabbitmq::{
 async fn main() -> Result<()> {
     let args = Cli::parse();
 
-    set_up_logging();
+    dotenv().expect(".env file not found");
+
+    set_up_logging()?;
 
     let rabbit_client = RabbitClient::new().await?;
 
