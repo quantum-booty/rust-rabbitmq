@@ -2,6 +2,7 @@
 ```
 docker run -d --hostname my-rabbit --name some-rabbit rabbitmq:3                                                                           
 docker run -d --name some-rabbit-management -p 5672:5672 -p 5673:5673 -p 15672:15672 rabbitmq:3-management
+docker run -d -p 127.0.0.1:5432:5432 -e POSTGRES_PASSWORD="1234" --name pg postgres
 cargo run -- generate
 cargo run -- process
 ```
