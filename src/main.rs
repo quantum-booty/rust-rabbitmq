@@ -23,16 +23,20 @@ async fn main() -> Result<()> {
 
     set_up_logging()?;
 
-    let rabbit_client = RabbitClient::new(&configs.rabbit).await?;
-
     let db = PgPoolOptions::new()
         .max_connections(1)
         .connect_lazy(&configs.database.url)?;
 
     info!("start processing in {}", args.env);
     match args.processor {
-        Processors::TestProcess(args) => test_process(rabbit_client, args.wait_ms).await?,
-        Processors::TestGenerate(args) => test_generate(rabbit_client, args.wait_ms).await?,
+        Processors::TestProcess(args) => {
+            let rabbit_client = RabbitClient::new(&configs.rabbit).await?;
+            test_process(rabbit_client, args.wait_ms).await?
+        }
+        Processors::TestGenerate(args) => {
+            let rabbit_client = RabbitClient::new(&configs.rabbit).await?;
+            test_generate(rabbit_client, args.wait_ms).await?
+        }
         Processors::TestDBProcess(args) => test_db_process(db.clone(), args.wait_ms).await?,
     }
 
