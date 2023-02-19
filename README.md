@@ -55,12 +55,5 @@ e.g. for logging, where there are multiple log systems for analysis or storage
 - `#` matches for zero or more words
 - if wild cards are not used, topic exchange behaves just like direct
 
-# Todo
-- [ ] refactor and generalize processors logic
-  - how to allow processors with different arguments?
-- [ ] test sqlx
-- [ ] test aws appconfig
-- [ ] add global configuration
-
 # Python Equivalent
 https://github.com/pika/pika/blob/main/examples/basic_consumer_threaded.py
