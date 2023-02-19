@@ -13,6 +13,7 @@ pub enum Processors {
     TestProcess(TestProcess),
     TestGenerate(TestGenerate),
     TestDBProcess(TestDBProcess),
+    TestRequestProcess,
 }
 
 #[derive(Args)]
