@@ -6,7 +6,7 @@ use tracing::info;
 #[derive(Debug, sqlx::FromRow)]
 #[allow(unused)]
 struct Model {
-    a: Option<i32>,
+    a: i32,
 }
 
 struct TestRepository {

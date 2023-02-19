@@ -8,8 +8,17 @@ pub struct Database {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct Rabbit {
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct Configs {
     pub database: Database,
+    pub rabbit: Rabbit,
 }
 
 impl Configs {

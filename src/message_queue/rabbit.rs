@@ -13,6 +13,8 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedReceiver;
 
+use crate::config::Rabbit;
+
 use super::MessageQueuePublisher;
 use super::MessageQueueReceiver;
 
@@ -24,13 +26,12 @@ pub struct RabbitClient {
 }
 
 impl RabbitClient {
-    pub async fn new() -> Result<Self> {
-        // TODO: don't hard code
+    pub async fn new(configs: &Rabbit) -> Result<Self> {
         let connection = Connection::open(&OpenConnectionArguments::new(
-            "localhost",
-            5672,
-            "guest",
-            "guest",
+            &configs.host,
+            configs.port,
+            &configs.username,
+            &configs.password,
         ))
         .await?;
 
@@ -45,6 +46,7 @@ impl RabbitClient {
                     .finish(),
             )
             .await?;
+        channel.close().await?;
         Ok(Self { conn: connection })
     }
     pub async fn get_publisher(&self, queue: &str) -> Result<impl MessageQueuePublisher> {

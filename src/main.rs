@@ -23,7 +23,7 @@ async fn main() -> Result<()> {
 
     set_up_logging()?;
 
-    let rabbit_client = RabbitClient::new().await?;
+    let rabbit_client = RabbitClient::new(&configs.rabbit).await?;
 
     let db = PgPoolOptions::new()
         .max_connections(1)
