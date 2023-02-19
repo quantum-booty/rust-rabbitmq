@@ -27,8 +27,7 @@ async fn main() -> Result<()> {
 
     let db = PgPoolOptions::new()
         .max_connections(1)
-        .connect(&configs.database.url)
-        .await?;
+        .connect_lazy(&configs.database.url)?;
 
     info!("start processing in {}", args.env);
     match args.processor {
