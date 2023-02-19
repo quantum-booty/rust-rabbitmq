@@ -12,6 +12,7 @@ pub struct Cli {
 pub enum Processors {
     TestProcess(TestProcess),
     TestGenerate(TestGenerate),
+    TestDBProcess(TestDBProcess),
 }
 
 #[derive(Args)]
@@ -22,6 +23,12 @@ pub struct TestProcess {
 
 #[derive(Args)]
 pub struct TestGenerate {
+    #[arg(long, default_value_t = 50)]
+    pub wait_ms: u64,
+}
+
+#[derive(Args)]
+pub struct TestDBProcess {
     #[arg(long, default_value_t = 50)]
     pub wait_ms: u64,
 }

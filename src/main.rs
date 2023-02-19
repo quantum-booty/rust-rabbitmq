@@ -6,16 +6,20 @@ use tracing::info;
 
 use rust_rabbitmq::{
     cli::{Cli, Processors},
+    config::Configs,
     log::set_up_logging,
     message_queue::rabbit::RabbitClient,
-    processors::{test_generator::test_generate, test_processor::test_process},
+    processors::{
+        test_db_processor::test_db_process, test_generator::test_generate,
+        test_processor::test_process,
+    },
 };
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
     let args = Cli::parse();
-
     dotenv().expect(".env file not found");
+    let configs = Configs::new(&args.env)?;
 
     set_up_logging()?;
 
@@ -23,13 +27,14 @@ async fn main() -> Result<()> {
 
     let db = PgPoolOptions::new()
         .max_connections(1)
-        .connect(&dotenvy::var("DATABASE_URL")?)
+        .connect(&configs.database.url)
         .await?;
 
     info!("start processing in {}", args.env);
     match args.processor {
         Processors::TestProcess(args) => test_process(rabbit_client, args.wait_ms).await?,
         Processors::TestGenerate(args) => test_generate(rabbit_client, args.wait_ms).await?,
+        Processors::TestDBProcess(args) => test_db_process(db.clone(), args.wait_ms).await?,
     }
 
     Ok(())

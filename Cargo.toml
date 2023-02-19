@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-amqprs = { version = "1.0.9", features = ["traces", "compliance_assert"] }
+amqprs = { version = "1.1.0", features = ["traces", "compliance_assert"] }
 anyhow = "1.0.69"
 async-trait = "0.1.64"
 # aws-config = "0.54.1"
@@ -21,3 +21,7 @@ tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
 sqlx = { version = "0.6", features = [ "runtime-tokio-rustls" , "postgres" ] }
 dotenvy = "0.15.6"
+config = "0.13.3"
+
+[profile.dev.package.sqlx-macros]
+opt-level = 3
