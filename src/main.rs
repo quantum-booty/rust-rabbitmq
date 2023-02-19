@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use dotenvy::dotenv;
+use sqlx::postgres::PgPoolOptions;
 use tracing::info;
 
 use rust_rabbitmq::{
@@ -19,6 +20,11 @@ async fn main() -> Result<()> {
     set_up_logging()?;
 
     let rabbit_client = RabbitClient::new().await?;
+
+    let db = PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&dotenvy::var("DATABASE_URL")?)
+        .await?;
 
     info!("start processing in {}", args.env);
     match args.processor {
