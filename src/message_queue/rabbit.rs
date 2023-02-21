@@ -21,6 +21,7 @@ use super::MessageQueueReceiver;
 static EXCHANGE: &str = "edge.direct";
 static EXCHANGE_TYPE: &str = "direct";
 
+#[derive(Clone)]
 pub struct RabbitClient {
     conn: Connection,
 }
