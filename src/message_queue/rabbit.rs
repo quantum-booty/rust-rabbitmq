@@ -50,6 +50,12 @@ impl RabbitClient {
         channel.close().await?;
         Ok(Self { conn: connection })
     }
+
+    pub async fn close(self) -> Result<()> {
+        self.conn.close().await?;
+        Ok(())
+    }
+
     pub async fn get_publisher(&self, queue: &str) -> Result<impl MessageQueuePublisher> {
         let channel = Self::get_channel(&self.conn).await?;
         self.declare_queue(&channel, queue).await?;

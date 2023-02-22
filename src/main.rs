@@ -31,11 +31,15 @@ async fn main() -> Result<()> {
 
     info!("start processing in {}", args.env);
     match args.processor {
-        Processors::TestProcess(args) => test_process(rabbit_client, args.wait_ms).await?,
-        Processors::TestGenerate(args) => test_generate(rabbit_client, args.wait_ms).await?,
+        Processors::TestProcess(args) => test_process(rabbit_client.clone(), args.wait_ms).await?,
+        Processors::TestGenerate(args) => test_generate(rabbit_client.clone(), args.wait_ms).await?,
         Processors::TestDBProcess(args) => test_db_process(db.clone(), args.wait_ms).await?,
         Processors::TestRequestProcess => test_request_process().await?,
     }
+
+    // to make sure the life time of the rabbit connection outlives the channels
+    // close the connection explicitly at the end of the program
+    rabbit_client.close().await?;
 
     Ok(())
 }
