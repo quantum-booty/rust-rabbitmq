@@ -6,24 +6,24 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-amqprs = { version = "1.1.0", features = ["traces", "compliance_assert"] }
-anyhow = "1.0.69"
-async-trait = "0.1.64"
+amqprs = { version = "1", features = ["traces", "compliance_assert"] }
+anyhow = "1"
+async-trait = "0.1"
 # aws-config = "0.54.1"
 # aws-sdk-appconfigdata = "0.24.0"
-clap = { version = "4.1.4", features = ["derive"] }
-itertools = "0.10.5"
-serde = { version = "1.0.152", features = ["serde_derive"] }
-serde_json = "1.0.92"
-thiserror = "1.0.38"
-tokio = { version = "1.25.0", features = ["full"] }
-tracing = "0.1.37"
-tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
+clap = { version = "4", features = ["derive"] }
+itertools = "0.10"
+serde = { version = "1", features = ["serde_derive"] }
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 sqlx = { version = "0.6", features = [ "runtime-tokio-rustls" , "postgres" ] }
-dotenvy = "0.15.6"
-config = "0.13.3"
-reqwest = { version = "0.11.14", features = ["json", "serde_json"] }
-rayon = "1.6.1"
+dotenvy = "0.15"
+config = "0.13"
+reqwest = { version = "0.11", features = ["json", "serde_json"] }
+rayon = "1"
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3

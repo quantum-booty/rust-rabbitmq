@@ -23,6 +23,7 @@ static EXCHANGE_TYPE: &str = "direct";
 
 #[derive(Clone)]
 pub struct RabbitClient {
+    // the rabbit connection is thread-safe so can be cloned across threads
     conn: Connection,
 }
 

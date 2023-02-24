@@ -32,7 +32,9 @@ async fn main() -> Result<()> {
     info!("start processing in {}", args.env);
     match args.processor {
         Processors::TestProcess(args) => test_process(rabbit_client.clone(), args.wait_ms).await?,
-        Processors::TestGenerate(args) => test_generate(rabbit_client.clone(), args.wait_ms).await?,
+        Processors::TestGenerate(args) => {
+            test_generate(rabbit_client.clone(), args.wait_ms).await?
+        }
         Processors::TestDBProcess(args) => test_db_process(db.clone(), args.wait_ms).await?,
         Processors::TestRequestProcess => test_request_process().await?,
     }
