@@ -21,7 +21,7 @@ impl TestHttpClient {
 }
 
 pub async fn test_request_process() -> Result<()> {
-    let data = TestHttpClient::post().await;
+    let data = TestHttpClient::post().await?;
     info!("{data:?}");
     Ok(())
 }
