@@ -4,7 +4,7 @@ use clap::{arg, Args, Parser, Subcommand};
 pub struct Cli {
     #[arg(long, default_value = "dev")]
     pub env: String,
-    #[clap(long, default_value_t = false, action = clap::ArgAction::Set)]
+    #[clap(long, default_value_t = false, env = "IS_LOCAL_RUN", action = clap::ArgAction::Set)]
     pub is_local_run: bool,
     #[command(subcommand)]
     pub processor: Processors,

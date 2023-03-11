@@ -17,8 +17,9 @@ use rust_rabbitmq::{
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
-    let args = Cli::parse();
     dotenv().expect(".env file not found");
+
+    let args = Cli::parse();
     let configs = Configs::new(&args.env)?;
 
     set_up_logging(args.is_local_run)?;
