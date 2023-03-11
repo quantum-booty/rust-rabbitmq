@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
     dotenv().expect(".env file not found");
     let configs = Configs::new(&args.env)?;
 
-    set_up_logging()?;
+    set_up_logging(args.is_local_run)?;
 
     let db = PgPoolOptions::new()
         .max_connections(1)

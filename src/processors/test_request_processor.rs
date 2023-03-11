@@ -22,6 +22,6 @@ impl TestHttpClient {
 
 pub async fn test_request_process() -> Result<()> {
     let data = TestHttpClient::post().await?;
-    info!("{data:?}");
+    info!(ip = data.origin);
     Ok(())
 }

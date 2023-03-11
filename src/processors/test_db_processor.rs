@@ -31,8 +31,14 @@ pub async fn test_db_process(db: PgPool, wait_ms: u64) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, serde::Serialize)]
+struct Event<'a> {
+    message: &'a str,
+    a: i32,
+}
+
 async fn process(test_repository: &TestRepository) -> Result<()> {
     let row = test_repository.get().await?;
-    info!("{row:?}");
+    info!(a = row.a);
     Ok(())
 }
