@@ -14,6 +14,8 @@ pub struct Cli {
 pub enum Processors {
     TestProcess(TestProcess),
     TestGenerate(TestGenerate),
+    TestProtobufProcess,
+    TestProtobufGenerate,
     TestDBProcess(TestDBProcess),
     TestRequestProcess,
 }

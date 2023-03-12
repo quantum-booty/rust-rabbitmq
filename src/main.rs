@@ -11,7 +11,9 @@ use rust_rabbitmq::{
     message_queue::rabbit::RabbitClient,
     processors::{
         test_db_processor::test_db_process, test_generator::test_generate,
-        test_processor::test_process, test_request_processor::test_request_process,
+        test_processor::test_process, test_protobuf_generator::test_protobuf_generate,
+        test_protobuf_processor::test_protobuf_process,
+        test_request_processor::test_request_process,
     },
 };
 
@@ -36,6 +38,8 @@ async fn main() -> Result<()> {
         Processors::TestGenerate(args) => {
             test_generate(rabbit_client.clone(), args.wait_ms).await?
         }
+        Processors::TestProtobufProcess => test_protobuf_process(rabbit_client.clone()).await?,
+        Processors::TestProtobufGenerate => test_protobuf_generate(rabbit_client.clone()).await?,
         Processors::TestDBProcess(args) => test_db_process(db.clone(), args.wait_ms).await?,
         Processors::TestRequestProcess => test_request_process().await?,
     }

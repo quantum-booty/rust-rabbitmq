@@ -1,6 +1,5 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use serde::Serialize;
 
 pub mod rabbit;
 
@@ -13,7 +12,5 @@ pub trait MessageQueueReceiver {
 
 #[async_trait]
 pub trait MessageQueuePublisher {
-    async fn publish<T>(&self, message: T) -> Result<()>
-    where
-        T: Serialize + Send;
+    async fn publish(&self, message: Vec<u8>) -> Result<()>;
 }

@@ -1,3 +1,5 @@
+use std::io::Cursor;
+
 use amqprs::{
     callbacks::{DefaultChannelCallback, DefaultConnectionCallback},
     channel::{
@@ -10,7 +12,7 @@ use amqprs::{
 };
 use anyhow::{Error, Result};
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::config::Rabbit;
@@ -82,14 +84,18 @@ impl RabbitClient {
     }
 
     async fn declare_queue(&self, channel: &Channel, queue: &str) -> Result<()> {
-        channel
-            .queue_declare(QueueDeclareArguments::new(queue).durable(true).finish())
-            .await?
-            .unwrap();
+        let args = QueueDeclareArguments::new(queue)
+            .durable(true)
+            // .arguments(FieldTable::new().insert("x-dead-letter-exchange", "some.exchange.name"))
+            .finish();
 
+        channel.queue_declare(args).await?.unwrap();
+
+        // set routing_key the same as the queue name as we are using a direct exchange
+        let routing_key = queue;
         // bind the queue to exchange
         channel
-            .queue_bind(QueueBindArguments::new(queue, EXCHANGE, queue))
+            .queue_bind(QueueBindArguments::new(queue, EXCHANGE, routing_key))
             .await?;
         Ok(())
     }
@@ -119,20 +125,14 @@ impl RabbitQueueMessagePublisher {
 
 #[async_trait]
 impl MessageQueuePublisher for RabbitQueueMessagePublisher {
-    async fn publish<T>(&self, message: T) -> Result<()>
-    where
-        T: Serialize + Send,
-    {
+    async fn publish(&self, message_content: Vec<u8>) -> Result<()> {
         let args = BasicPublishArguments::new(&self.exchange, &self.routing_key);
-        // todo: The serialization method can be made abstract
-        let content = serde_json::to_vec(&message)?;
         self.channel
             .basic_publish(
                 BasicProperties::default()
                     .with_delivery_mode(DELIVERY_MODE_PERSISTENT)
-                    .with_content_type("application/json")
                     .finish(),
-                content,
+                message_content,
                 args,
             )
             .await?;
@@ -169,6 +169,14 @@ impl RabbitMessage {
         for<'a> T: Deserialize<'a>,
     {
         let message_data: T = serde_json::from_slice(self.0.content.as_ref().unwrap())?;
+        Ok(message_data)
+    }
+
+    pub fn protobuf_deserialise<T>(&self) -> Result<T>
+    where
+        T: prost::Message + std::default::Default,
+    {
+        let message_data = T::decode(&mut Cursor::new(self.0.content.as_ref().unwrap()))?;
         Ok(message_data)
     }
 }

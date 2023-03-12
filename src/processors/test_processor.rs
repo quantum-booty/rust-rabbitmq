@@ -16,7 +16,7 @@ pub async fn test_process(rabbit_client: RabbitClient, wait_ms: u64) -> Result<(
         .await?;
 
     while let Some(message) = receiver.receive().await {
-        let message_data = message.json_deserialise::<TestMessage>()?;
+        let message_data: TestMessage = message.json_deserialise()?;
         info!("received a message {:?}", message_data);
 
         do_run(message_data);

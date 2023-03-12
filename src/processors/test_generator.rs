@@ -17,7 +17,7 @@ pub async fn test_generate(rabbit_client: RabbitClient, wait_ms: u64) -> Result<
         };
 
         info!("sending message {message}");
-        publisher.publish(message).await?;
+        publisher.publish(serde_json::to_vec(&message)?).await?;
         time::sleep(time::Duration::from_millis(wait_ms)).await;
     }
     Ok(())
