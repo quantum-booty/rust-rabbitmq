@@ -4,3 +4,4 @@ pub mod test_db_processor;
 pub mod test_request_processor;
 pub mod test_protobuf_generator;
 pub mod test_protobuf_processor;
+pub mod test_batch_processor;

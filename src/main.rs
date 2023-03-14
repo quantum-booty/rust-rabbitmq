@@ -13,7 +13,7 @@ use rust_rabbitmq::{
         test_db_processor::test_db_process, test_generator::test_generate,
         test_processor::test_process, test_protobuf_generator::test_protobuf_generate,
         test_protobuf_processor::test_protobuf_process,
-        test_request_processor::test_request_process,
+        test_request_processor::test_request_process, test_batch_processor::test_batch_process,
     },
 };
 
@@ -42,6 +42,7 @@ async fn main() -> Result<()> {
         Processors::TestProtobufGenerate => test_protobuf_generate(rabbit_client.clone()).await?,
         Processors::TestDBProcess(args) => test_db_process(db.clone(), args.wait_ms).await?,
         Processors::TestRequestProcess => test_request_process().await?,
+        Processors::TestBatchProcess => test_batch_process(rabbit_client.clone()).await?,
     }
 
     // to make sure the life time of the rabbit connection outlives the channels

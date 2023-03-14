@@ -21,12 +21,6 @@ pub async fn test_process(rabbit_client: RabbitClient, wait_ms: u64) -> Result<(
 
         do_run(message_data);
 
-        // need ability to batch process messages
-        // the processor potentially need sql connection, blob storage connection string, redis connection, configurations, etc
-        // there should be separation of the queuing logic and processing logic
-        // once_cell global configuration
-
-        // if doing batch processing, can set multple = true to ack multiple items up to the delivery tag
         receiver.ack(&message).await?;
 
         time::sleep(time::Duration::from_millis(wait_ms)).await;

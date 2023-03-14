@@ -1,4 +1,4 @@
-use std::io::Cursor;
+use std::{io::Cursor, pin::Pin, time::Duration};
 
 use amqprs::{
     callbacks::{DefaultChannelCallback, DefaultConnectionCallback},
@@ -14,11 +14,12 @@ use anyhow::{Error, Result};
 use async_trait::async_trait;
 use serde::Deserialize;
 use tokio::sync::mpsc::UnboundedReceiver;
+use tokio_stream::{wrappers::UnboundedReceiverStream, Stream, StreamExt};
 
 use crate::config::Rabbit;
 
-use super::MessageQueuePublisher;
 use super::MessageQueueReceiver;
+use super::{MessageQueueChunkReceiver, MessageQueuePublisher};
 
 static EXCHANGE: &str = "edge.direct";
 static EXCHANGE_TYPE: &str = "direct";
@@ -81,6 +82,27 @@ impl RabbitClient {
             .basic_qos(BasicQosArguments::new(0, prefetch_count, false))
             .await?;
         RabbitMessageQueueReceiver::new(channel, queue, tag).await
+    }
+
+    pub async fn get_chunk_receiver(
+        &self,
+        queue: &str,
+        tag: &str,
+        prefetch_count: u16,
+        chunk_size: usize,
+        duration: Duration,
+    ) -> Result<RabbitMessageQueueChunkReceiver> {
+        let channel = Self::get_channel(&self.conn).await?;
+        self.declare_queue(&channel, queue).await?;
+        // set limit to prefetch count
+        // to make sure messages are evenly distributed among consumers
+        // and prevent the consumer from being overwhelmed with messages
+        // https://www.rabbitmq.com/confirms.html#channel-qos-prefetch-throughput
+        channel
+            .basic_qos(BasicQosArguments::new(0, prefetch_count, false))
+            .await?;
+
+        RabbitMessageQueueChunkReceiver::new(channel, queue, tag, chunk_size, duration).await
     }
 
     async fn declare_queue(&self, channel: &Channel, queue: &str) -> Result<()> {
@@ -161,7 +183,74 @@ impl RabbitMessageQueueReceiver {
     }
 }
 
-pub struct RabbitMessage(ConsumerMessage);
+#[allow(dead_code)]
+pub struct RabbitMessageQueueChunkReceiver {
+    chunk_stream: Pin<Box<dyn Stream<Item = Vec<ConsumerMessage>>>>,
+    channel: Channel,
+    consumer_tag: String,
+    queue_name: String,
+}
+
+impl RabbitMessageQueueChunkReceiver {
+    pub async fn new(
+        channel: Channel,
+        queue: &str,
+        consumer_tag: &str,
+        chunk_size: usize,
+        duration: Duration,
+    ) -> Result<Self> {
+        let args = BasicConsumeArguments::new(queue, consumer_tag);
+        let (_ctag, receiver) = channel.basic_consume_rx(args).await?;
+        let chunk_receiver = UnboundedReceiverStream::new(receiver);
+        let chunk_stream = chunk_receiver.chunks_timeout(chunk_size, duration);
+        // tokio::pin!(chunk_stream);
+        Ok(RabbitMessageQueueChunkReceiver {
+            chunk_stream: Box::pin(chunk_stream),
+            channel,
+            consumer_tag: consumer_tag.to_string(),
+            queue_name: queue.to_string(),
+        })
+    }
+}
+
+pub struct RabbitMessage(pub ConsumerMessage);
+
+#[async_trait(?Send)]
+impl MessageQueueChunkReceiver for RabbitMessageQueueChunkReceiver {
+    type Message = RabbitMessage;
+
+    async fn receive(&mut self) -> Option<Vec<Self::Message>> {
+        self.chunk_stream
+            .next()
+            .await
+            .map(|vec| vec.into_iter().map(RabbitMessage).collect())
+    }
+
+    async fn ack_many(&self, messages: &[Self::Message]) -> Result<()> {
+        self.channel
+            .basic_ack(BasicAckArguments::new(
+                messages[messages.len() - 1]
+                    .0
+                    .deliver
+                    .as_ref()
+                    .unwrap()
+                    .delivery_tag(),
+                true,
+            ))
+            .await
+            .map_err(Error::from)
+    }
+
+    async fn ack(&self, message: &Self::Message) -> Result<()> {
+        self.channel
+            .basic_ack(BasicAckArguments::new(
+                message.0.deliver.as_ref().unwrap().delivery_tag(),
+                false,
+            ))
+            .await
+            .map_err(Error::from)
+    }
+}
 
 impl RabbitMessage {
     pub fn json_deserialise<T>(&self) -> Result<T>
@@ -184,6 +273,7 @@ impl RabbitMessage {
 #[async_trait]
 impl MessageQueueReceiver for RabbitMessageQueueReceiver {
     type Message = RabbitMessage;
+
     async fn receive(&mut self) -> Option<Self::Message> {
         self.receiver.recv().await.map(RabbitMessage)
     }

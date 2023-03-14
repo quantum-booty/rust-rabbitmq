@@ -18,6 +18,7 @@ pub enum Processors {
     TestProtobufGenerate,
     TestDBProcess(TestDBProcess),
     TestRequestProcess,
+    TestBatchProcess,
 }
 
 #[derive(Args, Debug)]
