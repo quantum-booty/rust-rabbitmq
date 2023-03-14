@@ -203,7 +203,6 @@ impl RabbitMessageQueueChunkReceiver {
         let (_ctag, receiver) = channel.basic_consume_rx(args).await?;
         let chunk_receiver = UnboundedReceiverStream::new(receiver);
         let chunk_stream = chunk_receiver.chunks_timeout(chunk_size, duration);
-        // tokio::pin!(chunk_stream);
         Ok(RabbitMessageQueueChunkReceiver {
             chunk_stream: Box::pin(chunk_stream),
             channel,
