@@ -18,8 +18,8 @@ use tokio_stream::{wrappers::UnboundedReceiverStream, Stream, StreamExt};
 
 use crate::config::Rabbit;
 
-use super::MessageQueueReceiver;
-use super::{MessageQueueChunkReceiver, MessageQueuePublisher};
+use super::Receiver;
+use super::{ChunkReceiver, Publisher};
 
 static EXCHANGE: &str = "edge.direct";
 static EXCHANGE_TYPE: &str = "direct";
@@ -60,10 +60,10 @@ impl RabbitClient {
         Ok(())
     }
 
-    pub async fn get_publisher(&self, queue: &str) -> Result<impl MessageQueuePublisher> {
+    pub async fn get_publisher(&self, queue: &str) -> Result<impl Publisher> {
         let channel = Self::get_channel(&self.conn).await?;
         self.declare_queue(&channel, queue).await?;
-        Ok(RabbitQueueMessagePublisher::new(channel, EXCHANGE, queue))
+        Ok(RabbitPublisher::new(channel, EXCHANGE, queue))
     }
 
     pub async fn get_receiver(
@@ -71,7 +71,7 @@ impl RabbitClient {
         queue: &str,
         tag: &str,
         prefetch_count: u16,
-    ) -> Result<RabbitMessageQueueReceiver> {
+    ) -> Result<RabbitReceiver> {
         let channel = Self::get_channel(&self.conn).await?;
         self.declare_queue(&channel, queue).await?;
         // set limit to prefetch count
@@ -81,7 +81,7 @@ impl RabbitClient {
         channel
             .basic_qos(BasicQosArguments::new(0, prefetch_count, false))
             .await?;
-        RabbitMessageQueueReceiver::new(channel, queue, tag).await
+        RabbitReceiver::new(channel, queue, tag).await
     }
 
     pub async fn get_chunk_receiver(
@@ -91,7 +91,7 @@ impl RabbitClient {
         prefetch_count: u16,
         chunk_size: usize,
         duration: Duration,
-    ) -> Result<RabbitMessageQueueChunkReceiver> {
+    ) -> Result<RabbitChunkReceiver> {
         let channel = Self::get_channel(&self.conn).await?;
         self.declare_queue(&channel, queue).await?;
         // set limit to prefetch count
@@ -102,7 +102,7 @@ impl RabbitClient {
             .basic_qos(BasicQosArguments::new(0, prefetch_count, false))
             .await?;
 
-        RabbitMessageQueueChunkReceiver::new(channel, queue, tag, chunk_size, duration).await
+        RabbitChunkReceiver::new(channel, queue, tag, chunk_size, duration).await
     }
 
     async fn declare_queue(&self, channel: &Channel, queue: &str) -> Result<()> {
@@ -129,13 +129,13 @@ impl RabbitClient {
     }
 }
 
-pub struct RabbitQueueMessagePublisher {
+pub struct RabbitPublisher {
     channel: Channel,
     exchange: String,
     routing_key: String,
 }
 
-impl RabbitQueueMessagePublisher {
+impl RabbitPublisher {
     pub fn new(channel: Channel, exchange: &str, routing_key: &str) -> Self {
         Self {
             channel,
@@ -146,7 +146,7 @@ impl RabbitQueueMessagePublisher {
 }
 
 #[async_trait]
-impl MessageQueuePublisher for RabbitQueueMessagePublisher {
+impl Publisher for RabbitPublisher {
     async fn publish(&self, message_content: Vec<u8>) -> Result<()> {
         let args = BasicPublishArguments::new(&self.exchange, &self.routing_key);
         self.channel
@@ -163,18 +163,18 @@ impl MessageQueuePublisher for RabbitQueueMessagePublisher {
 }
 
 #[allow(dead_code)]
-pub struct RabbitMessageQueueReceiver {
+pub struct RabbitReceiver {
     receiver: UnboundedReceiver<ConsumerMessage>,
     channel: Channel,
     consumer_tag: String,
     queue_name: String,
 }
 
-impl RabbitMessageQueueReceiver {
+impl RabbitReceiver {
     pub async fn new(channel: Channel, queue: &str, consumer_tag: &str) -> Result<Self> {
         let args = BasicConsumeArguments::new(queue, consumer_tag);
         let (_ctag, messages_rx) = channel.basic_consume_rx(args).await?;
-        Ok(RabbitMessageQueueReceiver {
+        Ok(RabbitReceiver {
             receiver: messages_rx,
             channel,
             consumer_tag: consumer_tag.to_string(),
@@ -184,14 +184,14 @@ impl RabbitMessageQueueReceiver {
 }
 
 #[allow(dead_code)]
-pub struct RabbitMessageQueueChunkReceiver {
+pub struct RabbitChunkReceiver {
     chunk_stream: Pin<Box<dyn Stream<Item = Vec<ConsumerMessage>>>>,
     channel: Channel,
     consumer_tag: String,
     queue_name: String,
 }
 
-impl RabbitMessageQueueChunkReceiver {
+impl RabbitChunkReceiver {
     pub async fn new(
         channel: Channel,
         queue: &str,
@@ -203,7 +203,7 @@ impl RabbitMessageQueueChunkReceiver {
         let (_ctag, receiver) = channel.basic_consume_rx(args).await?;
         let chunk_receiver = UnboundedReceiverStream::new(receiver);
         let chunk_stream = chunk_receiver.chunks_timeout(chunk_size, duration);
-        Ok(RabbitMessageQueueChunkReceiver {
+        Ok(RabbitChunkReceiver {
             chunk_stream: Box::pin(chunk_stream),
             channel,
             consumer_tag: consumer_tag.to_string(),
@@ -215,7 +215,7 @@ impl RabbitMessageQueueChunkReceiver {
 pub struct RabbitMessage(pub ConsumerMessage);
 
 #[async_trait(?Send)]
-impl MessageQueueChunkReceiver for RabbitMessageQueueChunkReceiver {
+impl ChunkReceiver for RabbitChunkReceiver {
     type Message = RabbitMessage;
 
     async fn receive(&mut self) -> Option<Vec<Self::Message>> {
@@ -270,7 +270,7 @@ impl RabbitMessage {
 }
 
 #[async_trait]
-impl MessageQueueReceiver for RabbitMessageQueueReceiver {
+impl Receiver for RabbitReceiver {
     type Message = RabbitMessage;
 
     async fn receive(&mut self) -> Option<Self::Message> {

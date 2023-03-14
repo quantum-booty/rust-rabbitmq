@@ -3,7 +3,7 @@ use std::time::Duration;
 use tracing::info;
 
 use crate::{
-    message_queue::{rabbit::RabbitClient, MessageQueueChunkReceiver},
+    message_queue::{rabbit::RabbitClient, ChunkReceiver},
     message_types::TestMessage,
 };
 

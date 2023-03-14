@@ -3,7 +3,7 @@ use tokio::time;
 use tracing::info;
 
 use crate::{
-    message_queue::{rabbit::RabbitClient, MessageQueueReceiver}, items::Shirt,
+    message_queue::{rabbit::RabbitClient, Receiver}, items::Shirt,
 };
 
 pub async fn test_protobuf_process(rabbit_client: RabbitClient) -> Result<()> {

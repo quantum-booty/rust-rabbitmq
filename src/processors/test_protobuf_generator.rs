@@ -5,7 +5,7 @@ use tracing::info;
 
 use crate::{
     items::{shirt::Size, Shirt},
-    message_queue::{rabbit::RabbitClient, MessageQueuePublisher},
+    message_queue::{rabbit::RabbitClient, Publisher},
 };
 
 pub async fn test_protobuf_generate(rabbit_client: RabbitClient) -> Result<()> {

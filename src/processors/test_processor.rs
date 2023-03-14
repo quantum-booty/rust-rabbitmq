@@ -3,7 +3,7 @@ use tokio::time;
 use tracing::info;
 
 use crate::{
-    message_queue::{rabbit::RabbitClient, MessageQueueReceiver},
+    message_queue::{rabbit::RabbitClient, Receiver},
     message_types::TestMessage,
 };
 
