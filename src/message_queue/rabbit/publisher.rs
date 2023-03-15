@@ -8,13 +8,13 @@ use async_trait::async_trait;
 use super::super::Publisher;
 
 pub struct RabbitPublisher {
-    pub(crate) channel: Channel,
-    pub(crate) exchange: String,
-    pub(crate) routing_key: String,
+    channel: Channel,
+    exchange: String,
+    routing_key: String,
 }
 
 impl RabbitPublisher {
-    pub fn new(channel: Channel, exchange: &str, routing_key: &str) -> Self {
+    pub(crate) fn new(channel: Channel, exchange: &str, routing_key: &str) -> Self {
         Self {
             channel,
             exchange: exchange.to_string(),

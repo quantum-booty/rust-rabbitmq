@@ -8,14 +8,14 @@ use super::RabbitMessage;
 
 #[allow(dead_code)]
 pub struct RabbitReceiver {
-    pub(crate) receiver: UnboundedReceiver<ConsumerMessage>,
-    pub(crate) channel: Channel,
-    pub(crate) consumer_tag: String,
-    pub(crate) queue_name: String,
+    receiver: UnboundedReceiver<ConsumerMessage>,
+    channel: Channel,
+    pub consumer_tag: String,
+    pub queue_name: String,
 }
 
 impl RabbitReceiver {
-    pub async fn new(channel: Channel, queue: &str, consumer_tag: &str) -> Result<Self> {
+    pub(crate) async fn new(channel: Channel, queue: &str, consumer_tag: &str) -> Result<Self> {
         let args = BasicConsumeArguments::new(queue, consumer_tag);
         let (_ctag, messages_rx) = channel.basic_consume_rx(args).await?;
         Ok(RabbitReceiver {

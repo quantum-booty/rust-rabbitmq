@@ -10,14 +10,14 @@ use super::RabbitMessage;
 
 #[allow(dead_code)]
 pub struct RabbitChunkReceiver {
-    pub(crate) chunk_stream: Pin<Box<dyn Stream<Item = Vec<ConsumerMessage>>>>,
-    pub(crate) channel: Channel,
-    pub(crate) consumer_tag: String,
-    pub(crate) queue_name: String,
+    chunk_stream: Pin<Box<dyn Stream<Item = Vec<ConsumerMessage>>>>,
+    channel: Channel,
+    pub consumer_tag: String,
+    pub queue_name: String,
 }
 
 impl RabbitChunkReceiver {
-    pub async fn new(
+    pub(crate) async fn new(
         channel: Channel,
         queue: &str,
         consumer_tag: &str,
