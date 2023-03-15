@@ -7,7 +7,7 @@ use crate::{
     message_types::TestMessage,
 };
 
-pub async fn test_process(rabbit_client: RabbitClient, wait_ms: u64) -> Result<()> {
+pub async fn test_process(rabbit_client: RabbitClient, wait_ms: u64, nack: bool) -> Result<()> {
     let queue = "test_queue_name";
     info!("Starting process {queue}");
 
@@ -21,7 +21,12 @@ pub async fn test_process(rabbit_client: RabbitClient, wait_ms: u64) -> Result<(
 
         do_run(message_data);
 
-        receiver.ack(&message).await?;
+        if nack {
+            // send to deadletter queue
+            receiver.nack(&message, false, false).await?;
+        } else {
+            receiver.ack(&message, false).await?;
+        }
 
         time::sleep(time::Duration::from_millis(wait_ms)).await;
     }

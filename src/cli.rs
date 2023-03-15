@@ -25,6 +25,8 @@ pub enum Processors {
 pub struct TestProcess {
     #[arg(long, default_value_t = 50)]
     pub wait_ms: u64,
+    #[arg(long, default_value_t = false, action = clap::ArgAction::Set)]
+    pub nack: bool,
 }
 
 #[derive(Args, Debug)]

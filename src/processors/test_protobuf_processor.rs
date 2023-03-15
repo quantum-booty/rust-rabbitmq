@@ -20,7 +20,7 @@ pub async fn test_protobuf_process(rabbit_client: RabbitClient) -> Result<()> {
 
         do_run(message_data);
 
-        receiver.ack(&message).await?;
+        receiver.ack(&message, false).await?;
 
         time::sleep(time::Duration::from_millis(1)).await;
     }

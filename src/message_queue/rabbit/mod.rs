@@ -9,6 +9,7 @@ use amqprs::{
         QueueDeclareArguments,
     },
     connection::{Connection, OpenConnectionArguments},
+    FieldTable,
 };
 use anyhow::Result;
 use serde::Deserialize;
@@ -24,6 +25,7 @@ use super::Publisher;
 
 static EXCHANGE: &str = "edge.direct";
 static EXCHANGE_TYPE: &str = "direct";
+static DEADLETTER_EXCHANGE: &str = "edge.deadletter";
 
 pub struct RabbitMessage(ConsumerMessage);
 
@@ -64,15 +66,7 @@ impl RabbitClient {
         connection
             .register_callback(DefaultConnectionCallback)
             .await?;
-        let channel = Self::get_channel(&connection).await?;
-        channel
-            .exchange_declare(
-                ExchangeDeclareArguments::new(EXCHANGE, EXCHANGE_TYPE)
-                    .durable(true)
-                    .finish(),
-            )
-            .await?;
-        channel.close().await?;
+        Self::declare_topology(&connection).await?;
         Ok(Self { conn: connection })
     }
 
@@ -127,11 +121,15 @@ impl RabbitClient {
     }
 
     async fn declare_queue(&self, channel: &Channel, queue: &str) -> Result<()> {
+        let mut deadletter_args = FieldTable::new();
+        deadletter_args.insert(
+            "x-dead-letter-exchange".try_into()?,
+            DEADLETTER_EXCHANGE.into(),
+        );
         let args = QueueDeclareArguments::new(queue)
             .durable(true)
-            // .arguments(FieldTable::new().insert("x-dead-letter-exchange", "some.exchange.name"))
+            .arguments(deadletter_args)
             .finish();
-
         channel.queue_declare(args).await?.unwrap();
 
         // set routing_key the same as the queue name as we are using a direct exchange
@@ -140,6 +138,19 @@ impl RabbitClient {
         channel
             .queue_bind(QueueBindArguments::new(queue, EXCHANGE, routing_key))
             .await?;
+
+        let deadletter_queue = &format!("{}.{}", queue, "deadletter");
+        let args = QueueDeclareArguments::new(deadletter_queue)
+            .durable(true)
+            .finish();
+        channel.queue_declare(args).await?.unwrap();
+        channel
+            .queue_bind(QueueBindArguments::new(
+                deadletter_queue,
+                DEADLETTER_EXCHANGE,
+                routing_key,
+            ))
+            .await?;
         Ok(())
     }
 
@@ -147,5 +158,25 @@ impl RabbitClient {
         let channel = conn.open_channel(None).await?;
         channel.register_callback(DefaultChannelCallback).await?;
         Ok(channel)
+    }
+
+    async fn declare_topology(connection: &Connection) -> Result<()> {
+        let channel = Self::get_channel(connection).await?;
+        channel
+            .exchange_declare(
+                ExchangeDeclareArguments::new(EXCHANGE, EXCHANGE_TYPE)
+                    .durable(true)
+                    .finish(),
+            )
+            .await?;
+        channel
+            .exchange_declare(
+                ExchangeDeclareArguments::new(DEADLETTER_EXCHANGE, "direct")
+                    .durable(true)
+                    .finish(),
+            )
+            .await?;
+        channel.close().await?;
+        Ok(())
     }
 }

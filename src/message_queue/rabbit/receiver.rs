@@ -1,4 +1,6 @@
-use amqprs::channel::{BasicAckArguments, BasicConsumeArguments, Channel, ConsumerMessage};
+use amqprs::channel::{
+    BasicAckArguments, BasicConsumeArguments, BasicNackArguments, Channel, ConsumerMessage,
+};
 use anyhow::{Error, Result};
 use async_trait::async_trait;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -35,11 +37,22 @@ impl Receiver for RabbitReceiver {
         self.receiver.recv().await.map(RabbitMessage)
     }
 
-    async fn ack(&self, message: &Self::Message) -> Result<()> {
+    async fn ack(&self, message: &Self::Message, multiple: bool) -> Result<()> {
         self.channel
             .basic_ack(BasicAckArguments::new(
                 message.0.deliver.as_ref().unwrap().delivery_tag(),
-                false,
+                multiple,
+            ))
+            .await
+            .map_err(Error::from)
+    }
+
+    async fn nack(&self, message: &Self::Message, multiple: bool, requeue: bool) -> Result<()> {
+        self.channel
+            .basic_nack(BasicNackArguments::new(
+                message.0.deliver.as_ref().unwrap().delivery_tag(),
+                multiple,
+                requeue,
             ))
             .await
             .map_err(Error::from)
