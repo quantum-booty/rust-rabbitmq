@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-amqprs = { version = "1.1.1", features = ["traces", "compliance_assert"] }
+amqprs = { version = "1.1", features = ["traces", "compliance_assert"] }
 anyhow = "1"
 async-trait = "0.1"
 # aws-config = "0.54.1"
